@@ -68,6 +68,7 @@ export interface Stats {
   flex: number
   mob: number
   mnd: number
+  end: number
 }
 
 export interface ActivityType {

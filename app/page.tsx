@@ -14,6 +14,7 @@ import TrainingCards from "@/components/TrainingCards"
 import TodayLog from "@/components/TodayLog"
 import Widgets from "@/components/Widgets"
 import Attributes from "@/components/Attributes"
+import MuscleBalance from "@/components/MuscleBalance"
 import Bodyweight from "@/components/Bodyweight"
 import Lifts from "@/components/Lifts"
 import WeekBar from "@/components/WeekBar"
@@ -104,8 +105,9 @@ export default function Dashboard() {
         )}
         {sections.todayLog   && <TodayLog onOpenGymModal={(id) => setGymModal({ open: true, sessId: id })} />}
         {sections.widgets    && <Widgets onOpenWidgetModal={(id) => setWidgetModal({ open: true, editId: id })} />}
-        {sections.attributes && <Attributes />}
-        {sections.bodyweight && <Bodyweight />}
+        {sections.attributes    && <Attributes />}
+        {sections.muscleBalance && <MuscleBalance />}
+        {sections.bodyweight    && <Bodyweight />}
         {sections.lifts      && (
           <Lifts
             onOpenAddLift={() => setAddLiftModal(true)}

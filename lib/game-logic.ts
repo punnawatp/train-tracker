@@ -1,5 +1,5 @@
 import type { ActivityType, AppState, Session, Stats } from "./types"
-import { BELTS, DAILY_QUESTS, WEEKLY_QUESTS } from "./constants"
+import { BELTS, DAILY_QUESTS, STRENGTH_LEVELS, STRENGTH_STANDARDS, WEEKLY_QUESTS } from "./constants"
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -337,5 +337,41 @@ export function computeStatMetric(key: string, state: AppState): { v: string; su
       return { v: (state.sessions.length / wks).toFixed(1) }
     }
     default: return { v: "—" }
+  }
+}
+
+// ── Strength levels ───────────────────────────────────────────────────────────
+
+export interface StrengthLevelResult {
+  levelIndex: number        // 0 = untrained, 1-5 = Beginner→Elite
+  name: string
+  color: string
+  nextLevelName: string | null
+  nextAt: number | null     // estimated 1RM needed for next level (kg)
+  thresholds: number[]      // all 5 thresholds in kg for this BW
+}
+
+export function getStrengthLevel(liftName: string, est1RMKg: number, bodyweightKg: number): StrengthLevelResult | null {
+  const key = liftName.toLowerCase().replace(/[^a-z]/g, "")
+  const standards = STRENGTH_STANDARDS[key]
+  if (!standards || bodyweightKg <= 0) return null
+
+  const thresholds = standards.map(m => Math.round(m * bodyweightKg * 10) / 10)
+
+  let levelIndex = 0
+  for (let i = 0; i < thresholds.length; i++) {
+    if (est1RMKg >= thresholds[i]) levelIndex = i + 1
+  }
+
+  const def = levelIndex > 0 ? STRENGTH_LEVELS[levelIndex - 1] : { name: "Untrained", color: "#4b5563" }
+  const nextDef = levelIndex < 5 ? STRENGTH_LEVELS[levelIndex] : null
+
+  return {
+    levelIndex,
+    name: def.name,
+    color: def.color,
+    nextLevelName: nextDef?.name ?? null,
+    nextAt: levelIndex < 5 ? thresholds[levelIndex] : null,
+    thresholds,
   }
 }

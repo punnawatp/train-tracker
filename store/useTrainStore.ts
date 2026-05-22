@@ -29,7 +29,7 @@ const defaultData: AppState = {
   bodyweight: { goal: null, history: [] },
   categories: structuredClone(DEFAULT_CATEGORIES),
   lifts: structuredClone(DEFAULT_LIFTS),
-  stats: { str: 0, flex: 0, mob: 0, mnd: 0 },
+  stats: { str: 0, flex: 0, mob: 0, mnd: 0, end: 0 },
   xpRules: { ...DEFAULT_XP_RULES },
   widgets: [],
   ui: { sectionsVisible: { ...DEFAULT_SECTIONS } },
@@ -133,6 +133,7 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
     flex: rawStats.flex || 0,
     mob: rawStats.mob || 0,
     mnd: rawStats.mnd || 0,
+    end: rawStats.end || 0,
   }
 
   merged.activityTypes = merged.activityTypes?.length ? merged.activityTypes : structuredClone(DEFAULT_ACTIVITY_TYPES)

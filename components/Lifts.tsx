@@ -1,7 +1,8 @@
 "use client"
 
 import { useTrainStore } from "@/store/useTrainStore"
-import { est1RM, estimateETA } from "@/lib/game-logic"
+import { est1RM, estimateETA, getStrengthLevel } from "@/lib/game-logic"
+import { EXERCISE_MUSCLES, MUSCLE_GROUPS } from "@/lib/constants"
 
 interface Props {
   onOpenAddLift: () => void
@@ -10,6 +11,7 @@ interface Props {
 
 export default function Lifts({ onOpenAddLift, onOpenLift }: Props) {
   const data = useTrainStore(s => s.data)
+  const bodyweight = data.bodyweight.history.slice(-1)[0]?.value ?? 0
 
   return (
     <div className="section mt-5">
@@ -19,6 +21,12 @@ export default function Lifts({ onOpenAddLift, onOpenLift }: Props) {
           <button onClick={onOpenAddLift} className="mini-btn">+ Add lift</button>
         </span>
       </h3>
+
+      {!bodyweight && (
+        <div className="text-[11px] text-muted mb-3 px-1">
+          Log your bodyweight to see strength levels.
+        </div>
+      )}
 
       {data.lifts.length === 0 ? (
         <div className="text-muted text-sm text-center py-5">No lifts tracked. Tap &quot;+ Add lift&quot; to start.</div>
@@ -37,6 +45,9 @@ export default function Lifts({ onOpenAddLift, onOpenLift }: Props) {
                   for (const h of (l.history || [])) { const e = est1RM(h.weight, h.reps); if (e > best1RM) best1RM = e }
                   const eligibleHist = (l.history || []).filter(h => h.reps >= (l.targetReps || 8)).map(h => ({ ts: h.ts, weight: h.weight }))
                   const eta = (!done && l.goal > 0 && l.current < l.goal) ? estimateETA(eligibleHist, l.current, l.goal) : null
+                  const sl = bodyweight > 0 ? getStrengthLevel(l.name, best1RM || l.current, bodyweight) : null
+                  const muscleKey = l.name.toLowerCase().replace(/[^a-z]/g, "")
+                  const muscles = EXERCISE_MUSCLES[muscleKey]
 
                   return (
                     <div
@@ -49,10 +60,36 @@ export default function Lifts({ onOpenAddLift, onOpenLift }: Props) {
                         <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ml-1.5" style={{ background: "rgba(76,201,240,0.15)", color: "#4cc9f0" }}>@{l.targetReps || 8}</span>
                         {l.note && <span className="text-muted text-[11px] ml-1">· {l.note}</span>}
                       </div>
+                      {muscles && (
+                        <div className="flex gap-1 flex-wrap mt-1">
+                          {muscles.primary.map(m => {
+                            const mg = MUSCLE_GROUPS[m]
+                            return mg ? (
+                              <span key={m} className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: mg.color + "22", color: mg.color }}>{mg.name}</span>
+                            ) : null
+                          })}
+                          {muscles.secondary.map(m => {
+                            const mg = MUSCLE_GROUPS[m]
+                            return mg ? (
+                              <span key={m} className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-muted" style={{ background: "#ffffff08" }}>{mg.name}</span>
+                            ) : null
+                          })}
+                        </div>
+                      )}
                       <div className="text-sm text-muted mt-0.5">
                         <span className="text-tx font-semibold">{l.current} kg</span> → <span className="text-gold font-semibold">{l.goal || "—"} kg</span>
                       </div>
-                      {best1RM > 0 && <div className="text-[11px] text-muted mt-0.5">Est 1RM: <strong className="text-tx">{best1RM.toFixed(1)} kg</strong></div>}
+
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {best1RM > 0 && <div className="text-[11px] text-muted">Est 1RM: <strong className="text-tx">{best1RM.toFixed(1)} kg</strong></div>}
+                        {sl && (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: sl.color + "22", color: sl.color }}>
+                            {sl.name}
+                            {sl.nextAt && <span className="font-normal opacity-70"> → {sl.nextLevelName} at {sl.nextAt} kg</span>}
+                          </span>
+                        )}
+                      </div>
+
                       <div className="mt-2 h-1.5 bg-[#0a0b0e] rounded-full overflow-hidden">
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: "linear-gradient(90deg, #4cc9f0, #4ade80)" }} />
                       </div>
