@@ -2,20 +2,21 @@
 
 import { create } from "zustand"
 import { createClient } from "@/lib/supabase/client"
-import type { AppState, Exercise, Session, Toast, Widget } from "@/lib/types"
+import type { ActivityType, AppState, Exercise, Session, Toast, Widget } from "@/lib/types"
 import {
-  DEFAULT_SECTIONS, DEFAULT_XP_RULES, DEFAULT_CATEGORIES, DEFAULT_LIFTS,
+  DEFAULT_SECTIONS, DEFAULT_XP_RULES, DEFAULT_CATEGORIES, DEFAULT_LIFTS, DEFAULT_ACTIVITY_TYPES,
   ACHIEVEMENTS,
 } from "@/lib/constants"
 import {
   addStatsForSession, addStatClamped, checkWeeklyGoalsMet,
   comboMultiplier, dayKey, findMatchingLift, getDailyQuest,
-  getWeeklyQuest, sessionVolume, todaySessions, weekKey, weeklyQuestProgress,
-  xpToLevel, levelProgress, beltFor,
+  sessionVolume, todaySessions, weekKey, weeklyQuestProgress,
+  xpToLevel, beltFor,
 } from "@/lib/game-logic"
 
 const defaultData: AppState = {
   targets: { gym: 3, bjj: 2, mma: 2 },
+  activityTypes: structuredClone(DEFAULT_ACTIVITY_TYPES),
   sessions: [],
   xp: 0,
   weeksGoalsHit: 0,
@@ -28,7 +29,7 @@ const defaultData: AppState = {
   bodyweight: { goal: null, history: [] },
   categories: structuredClone(DEFAULT_CATEGORIES),
   lifts: structuredClone(DEFAULT_LIFTS),
-  stats: { str: 0, con: 0, tec: 0, dis: 0 },
+  stats: { str: 0, flex: 0, mob: 0, mnd: 0 },
   xpRules: { ...DEFAULT_XP_RULES },
   widgets: [],
   ui: { sectionsVisible: { ...DEFAULT_SECTIONS } },
@@ -46,13 +47,18 @@ interface StoreState {
   save: (next: AppState) => Promise<void>
 
   // Session actions
-  logSession: (type: "gym" | "bjj" | "mma", exercises?: Exercise[], note?: string) => void
+  logSession: (type: string, exercises?: Exercise[], note?: string) => void
   updateSession: (sessId: number, exercises: Exercise[], note: string) => void
   deleteSession: (id: number) => void
   resetWeek: () => void
 
   // Target actions
-  setTarget: (type: "gym" | "bjj" | "mma", val: number) => void
+  setTarget: (type: string, val: number) => void
+
+  // Activity types
+  addActivityType: (act: Omit<ActivityType, "id">) => void
+  updateActivityType: (id: string, patch: Partial<Omit<ActivityType, "id">>) => void
+  deleteActivityType: (id: string) => void
 
   // Bodyweight
   logBodyweight: (value: number) => void
@@ -116,6 +122,20 @@ async function persistData(state: AppState): Promise<void> {
 
 function mergeFromStorage(raw: Partial<AppState>): AppState {
   const merged: AppState = { ...structuredClone(defaultData), ...raw }
+
+  // Migrate old stat keys (str/con/tec/dis → str/flex/mob/mnd)
+  const rawStats = (merged.stats || {}) as unknown as Record<string, number>
+  if ("con" in rawStats && !("flex" in rawStats)) rawStats.flex = rawStats.con
+  if ("tec" in rawStats && !("mob" in rawStats)) rawStats.mob = rawStats.tec
+  if ("dis" in rawStats && !("mnd" in rawStats)) rawStats.mnd = rawStats.dis
+  merged.stats = {
+    str: rawStats.str || 0,
+    flex: rawStats.flex || 0,
+    mob: rawStats.mob || 0,
+    mnd: rawStats.mnd || 0,
+  }
+
+  merged.activityTypes = merged.activityTypes?.length ? merged.activityTypes : structuredClone(DEFAULT_ACTIVITY_TYPES)
   merged.categories = merged.categories?.length ? merged.categories : structuredClone(DEFAULT_CATEGORIES)
   merged.xpRules = { ...DEFAULT_XP_RULES, ...(merged.xpRules || {}) }
   merged.widgets = merged.widgets || []
@@ -130,7 +150,6 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
       return { ts: Number(raw["ts"] ?? 0), weight: Number(raw["weight"] ?? 0), reps: Number(raw["reps"] ?? (l.targetReps || 8)) }
     }),
   }))
-  merged.stats = merged.stats || { str: 0, con: 0, tec: 0, dis: 0 }
   return merged
 }
 
@@ -161,7 +180,9 @@ export const useTrainStore = create<StoreState>((set, get) => ({
 
   logSession: (type, exercises = [], note = "") => {
     const { data, save, addToast, showPRFlash } = get()
-    const baseXp = data.xpRules[type] || 10
+    const actType = data.activityTypes.find(a => a.id === type)
+    if (!actType) return
+    const baseXp = actType.xp
     const multi = comboMultiplier(data)
     let earned = Math.round(baseXp * multi)
     if (exercises.length > 0) earned += Math.min(data.xpRules.exerciseBonusMax, exercises.length * data.xpRules.exerciseBonus)
@@ -176,7 +197,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
       ...data,
       sessions: [session, ...data.sessions],
       xp: data.xp + earned,
-      stats: addStatsForSession(data.stats, session),
+      stats: addStatsForSession(data.stats, session, actType),
     }
 
     // Auto-update lifts from exercises
@@ -203,9 +224,9 @@ export const useTrainStore = create<StoreState>((set, get) => ({
         weekKeysCounted: [...next.weekKeysCounted, weekKey()],
         weeksGoalsHit: (next.weeksGoalsHit || 0) + 1,
         xp: next.xp + next.xpRules.weeklyBonus,
-        stats: addStatClamped(next.stats, "dis", 3.0),
+        stats: addStatClamped(next.stats, "mnd", 3.0),
       }
-      addToast({ title: "WEEK COMPLETE", body: "All goals hit!", sub: `+${next.xpRules.weeklyBonus} XP · +3 DIS`, kind: "xp" })
+      addToast({ title: "WEEK COMPLETE", body: "All goals hit!", sub: `+${next.xpRules.weeklyBonus} XP · +3 MND`, kind: "xp" })
     }
 
     // Daily quest
@@ -228,7 +249,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const subBits: string[] = []
     if (multi > 1) subBits.push(`×${multi.toFixed(2)}`)
     if (exercises.length > 0) subBits.push(`${exercises.length} ex · ${Math.round(sessionVolume(session))}kg`)
-    addToast({ title: `+${earned} XP`, body: type.toUpperCase() + " logged", sub: subBits.join(" · ") || undefined, kind: "xp" })
+    addToast({ title: `+${earned} XP`, body: actType.name + " logged", sub: subBits.join(" · ") || undefined, kind: "xp" })
 
     if (prsHit.length > 0) showPRFlash(prsHit[0].name, prsHit[0].val)
 
@@ -251,6 +272,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     if (!session) return
     const oldVolume = sessionVolume(session)
     const updatedSession = { ...session, exercises, note }
+    const actType = data.activityTypes.find(a => a.id === session.type)
 
     let next = { ...data, sessions: data.sessions.map(s => s.id === sessId ? updatedSession : s) }
     const prsHit: { name: string; val: string }[] = []
@@ -267,7 +289,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     next = { ...next, lifts }
 
     if (prsHit.length > 0) showPRFlash(prsHit[0].name, prsHit[0].val)
-    get().addToast({ title: "Session updated", body: `${session.type.toUpperCase()} · ${exercises.length} ex`, sub: `Δ vol: ${Math.round(sessionVolume(updatedSession) - oldVolume)} kg` })
+    get().addToast({ title: "Session updated", body: `${actType?.name || session.type.toUpperCase()} · ${exercises.length} ex`, sub: `Δ vol: ${Math.round(sessionVolume(updatedSession) - oldVolume)} kg` })
     save(next)
   },
 
@@ -292,6 +314,30 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     save({ ...data, targets: { ...data.targets, [type]: Math.max(0, Math.min(14, val)) } })
   },
 
+  // ── Activity types ──────────────────────────────────────────────────────────
+
+  addActivityType: (act) => {
+    const { data, save } = get()
+    const newAct: ActivityType = { ...act, id: "act_" + Date.now() }
+    save({
+      ...data,
+      activityTypes: [...data.activityTypes, newAct],
+      targets: { ...data.targets, [newAct.id]: 1 },
+    })
+  },
+
+  updateActivityType: (id, patch) => {
+    const { data, save } = get()
+    save({ ...data, activityTypes: data.activityTypes.map(a => a.id === id ? { ...a, ...patch } : a) })
+  },
+
+  deleteActivityType: (id) => {
+    const { data, save } = get()
+    const targets = { ...data.targets }
+    delete targets[id]
+    save({ ...data, activityTypes: data.activityTypes.filter(a => a.id !== id), targets })
+  },
+
   // ── Bodyweight ──────────────────────────────────────────────────────────────
 
   logBodyweight: (value) => {
@@ -299,10 +345,10 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const next: AppState = {
       ...data,
       xp: data.xp + data.xpRules.bodyweightLog,
-      stats: addStatClamped(data.stats, "dis", 0.3),
+      stats: addStatClamped(data.stats, "mnd", 0.3),
       bodyweight: { ...data.bodyweight, history: [...data.bodyweight.history, { ts: Date.now(), value }] },
     }
-    addToast({ title: `+${data.xpRules.bodyweightLog} XP`, body: `Bodyweight: ${value} kg`, sub: "+0.3 DIS", kind: "xp" })
+    addToast({ title: `+${data.xpRules.bodyweightLog} XP`, body: `Bodyweight: ${value} kg`, sub: "+0.3 MND", kind: "xp" })
     save(next)
   },
 

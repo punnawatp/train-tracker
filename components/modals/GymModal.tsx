@@ -7,11 +7,12 @@ import type { Exercise } from "@/lib/types"
 
 interface Props {
   open: boolean
+  activityId?: string
   sessId?: number
   onClose: () => void
 }
 
-export default function GymModal({ open, sessId, onClose }: Props) {
+export default function GymModal({ open, activityId, sessId, onClose }: Props) {
   const data = useTrainStore(s => s.data)
   const logSession = useTrainStore(s => s.logSession)
   const updateSession = useTrainStore(s => s.updateSession)
@@ -50,7 +51,7 @@ export default function GymModal({ open, sessId, onClose }: Props) {
     if (sessId != null) {
       updateSession(sessId, exercises, note.trim())
     } else {
-      logSession("gym", exercises, note.trim())
+      logSession(activityId || "gym", exercises, note.trim())
       burstConfetti(undefined, undefined, false)
     }
     onClose()
@@ -70,7 +71,7 @@ export default function GymModal({ open, sessId, onClose }: Props) {
   return (
     <div className="modal-bg show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal">
-        <h2 className="text-lg font-bold mb-1">{sessId != null ? "Edit Session" : "Log Gym Session"}</h2>
+        <h2 className="text-lg font-bold mb-1">{sessId != null ? "Edit Session" : "Log Session"}</h2>
         <p className="text-muted text-sm mb-4">Add exercises with weight × reps × sets. PRs auto-recorded.</p>
 
         <label className="field-label">Notes (optional)</label>

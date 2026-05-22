@@ -1,4 +1,4 @@
-import type { AppState, Category, Lift, XpRules } from "./types"
+import type { AppState, ActivityType, Category, Lift, XpRules } from "./types"
 
 export const BELTS = [
   { lvl: 1,  name: "White Belt",  color: "#ffffff", stripe: "#000000" },
@@ -33,8 +33,34 @@ export const DEFAULT_LIFTS: Lift[] = [
   { id: "tripush",    name: "Triceps Pushdown",      cat: "upper", current: 0,  goal: 40,  targetReps: 10, history: [] },
 ]
 
+export const DEFAULT_ACTIVITY_TYPES: ActivityType[] = [
+  {
+    id: "gym",
+    name: "Gym",
+    color: "#4cc9f0",
+    xp: 10,
+    hasExercises: true,
+    statGains: { str: 2.0, flex: 0.5 },
+  },
+  {
+    id: "bjj",
+    name: "BJJ",
+    color: "#b388ff",
+    xp: 15,
+    hasExercises: false,
+    statGains: { mob: 2.0, flex: 1.0 },
+  },
+  {
+    id: "mma",
+    name: "MMA",
+    color: "#ff7043",
+    xp: 20,
+    hasExercises: false,
+    statGains: { flex: 2.0, mob: 1.0, str: 0.5 },
+  },
+]
+
 export const DEFAULT_XP_RULES: XpRules = {
-  gym: 10, bjj: 15, mma: 20,
   exerciseBonus: 5, exerciseBonusMax: 25,
   prBonus: 25, weeklyBonus: 50, bodyweightLog: 3,
 }
@@ -55,28 +81,43 @@ export const SECTION_LABELS: Record<string, string> = {
   stats: "Stats", achievements: "Achievements", history: "Recent sessions",
 }
 
+export const STAT_DEFS = [
+  { key: "str", name: "STR", label: "Strength",     color: "#ef4444" },
+  { key: "flex", name: "FLX", label: "Flexibility",  color: "#4cc9f0" },
+  { key: "mob", name: "MOB", label: "Mobility",      color: "#b388ff" },
+  { key: "mnd", name: "MND", label: "Mindfulness",   color: "#4ade80" },
+]
+
+export const STAT_METRIC_KEYS = [
+  "level", "totalXp", "beltName", "totalSessions", "sessionsWeek",
+  "sessionsMonth", "dayStreak", "weekGoalStreak", "totalPrs", "prsWeek",
+  "volumeWeek", "volumeTotal", "achievementsUnlocked", "questsCompleted",
+  "weeklyQuestsCompleted", "comboMultiplier", "bodyweightCurrent",
+  "bodyweightGoal", "bodyweight30dChange", "averagePerWeek",
+]
+
 export const ACHIEVEMENTS = [
-  { id: "first",     name: "First Steps",      icon: "👣", desc: "Log your first session",     check: (s: AppState) => s.sessions.length >= 1 },
-  { id: "gym10",     name: "Iron Will",        icon: "💪", desc: "10 gym sessions",            check: (s: AppState) => s.sessions.filter(x => x.type === "gym").length >= 10 },
-  { id: "bjj10",     name: "Mat Time",         icon: "🥋", desc: "10 BJJ sessions",            check: (s: AppState) => s.sessions.filter(x => x.type === "bjj").length >= 10 },
-  { id: "mma10",     name: "Cage Ready",       icon: "🥊", desc: "10 MMA sessions",            check: (s: AppState) => s.sessions.filter(x => x.type === "mma").length >= 10 },
-  { id: "triple",    name: "Triple Threat",    icon: "⚡", desc: "All 3 disciplines in a week", check: (s: AppState) => hasAllThreeInWeek(s) },
-  { id: "week1",     name: "Week Crusher",     icon: "🎯", desc: "Hit all weekly goals once",   check: (s: AppState) => s.weeksGoalsHit >= 1 },
-  { id: "streak5",   name: "On Fire",          icon: "🔥", desc: "5-day training streak",       check: (s: AppState) => dayStreak(s) >= 5 },
-  { id: "streak10",  name: "Relentless",       icon: "⚔️", desc: "10-day training streak",      check: (s: AppState) => dayStreak(s) >= 10 },
-  { id: "total50",   name: "Half Century",     icon: "🏅", desc: "50 total sessions",           check: (s: AppState) => s.sessions.length >= 50 },
-  { id: "total100",  name: "Centurion",        icon: "🏆", desc: "100 total sessions",          check: (s: AppState) => s.sessions.length >= 100 },
-  { id: "lvl5",      name: "Bluebelt",         icon: "🔵", desc: "Reach Blue Belt (Lvl 5)",     check: (s: AppState) => xpToLevel(s.xp) >= 5 },
-  { id: "lvl10",     name: "Purplebelt",       icon: "🟣", desc: "Reach Purple Belt (Lvl 10)",  check: (s: AppState) => xpToLevel(s.xp) >= 10 },
-  { id: "quest5",    name: "Quester",          icon: "📜", desc: "Complete 5 daily quests",     check: (s: AppState) => (s.questsDone || 0) >= 5 },
-  { id: "pr1",       name: "First PR",         icon: "📈", desc: "Hit your first PR",           check: (s: AppState) => prCount(s) >= 1 },
-  { id: "pr5",       name: "PR Hunter",        icon: "🎯", desc: "Set 5 PRs",                   check: (s: AppState) => prCount(s) >= 5 },
-  { id: "pr20",      name: "PR Machine",       icon: "🚀", desc: "Set 20 PRs",                  check: (s: AppState) => prCount(s) >= 20 },
-  { id: "goalbw",    name: "Body Goals",       icon: "⚖️", desc: "Hit your bodyweight goal",    check: (s: AppState) => bodyweightGoalHit(s) },
-  { id: "goallift1", name: "Strong Like Bull", icon: "🐂", desc: "Hit a strength goal",         check: (s: AppState) => s.lifts.some(l => l.current >= l.goal && l.goal > 0) },
-  { id: "vol1k",     name: "Volume King",      icon: "🏋️", desc: "5000kg volume in one week",  check: (s: AppState) => weekVolumeCheck(s) >= 5000 },
-  { id: "balanced",  name: "Well-Rounded",     icon: "⚖️", desc: "All attributes ≥ 25",         check: (s: AppState) => Object.values(s.stats || {}).every(v => v >= 25) },
-  { id: "maxstat",   name: "Specialist",       icon: "💎", desc: "Any attribute ≥ 75",          check: (s: AppState) => Object.values(s.stats || {}).some(v => v >= 75) },
+  { id: "first",     name: "First Steps",      icon: "👣", desc: "Log your first session",       check: (s: AppState) => s.sessions.length >= 1 },
+  { id: "gym10",     name: "Iron Will",        icon: "💪", desc: "10 gym sessions",              check: (s: AppState) => s.sessions.filter(x => x.type === "gym").length >= 10 },
+  { id: "bjj10",     name: "Mat Time",         icon: "🥋", desc: "10 BJJ sessions",              check: (s: AppState) => s.sessions.filter(x => x.type === "bjj").length >= 10 },
+  { id: "mma10",     name: "Cage Ready",       icon: "🥊", desc: "10 MMA sessions",              check: (s: AppState) => s.sessions.filter(x => x.type === "mma").length >= 10 },
+  { id: "triple",    name: "Triple Threat",    icon: "⚡", desc: "3+ disciplines in one week",   check: (s: AppState) => hasAllThreeInWeek(s) },
+  { id: "week1",     name: "Week Crusher",     icon: "🎯", desc: "Hit all weekly goals once",     check: (s: AppState) => s.weeksGoalsHit >= 1 },
+  { id: "streak5",   name: "On Fire",          icon: "🔥", desc: "5-day training streak",         check: (s: AppState) => dayStreak(s) >= 5 },
+  { id: "streak10",  name: "Relentless",       icon: "⚔️", desc: "10-day training streak",        check: (s: AppState) => dayStreak(s) >= 10 },
+  { id: "total50",   name: "Half Century",     icon: "🏅", desc: "50 total sessions",             check: (s: AppState) => s.sessions.length >= 50 },
+  { id: "total100",  name: "Centurion",        icon: "🏆", desc: "100 total sessions",            check: (s: AppState) => s.sessions.length >= 100 },
+  { id: "lvl5",      name: "Bluebelt",         icon: "🔵", desc: "Reach Blue Belt (Lvl 5)",       check: (s: AppState) => xpToLevel(s.xp) >= 5 },
+  { id: "lvl10",     name: "Purplebelt",       icon: "🟣", desc: "Reach Purple Belt (Lvl 10)",    check: (s: AppState) => xpToLevel(s.xp) >= 10 },
+  { id: "quest5",    name: "Quester",          icon: "📜", desc: "Complete 5 daily quests",       check: (s: AppState) => (s.questsDone || 0) >= 5 },
+  { id: "pr1",       name: "First PR",         icon: "📈", desc: "Hit your first PR",             check: (s: AppState) => prCount(s) >= 1 },
+  { id: "pr5",       name: "PR Hunter",        icon: "🎯", desc: "Set 5 PRs",                     check: (s: AppState) => prCount(s) >= 5 },
+  { id: "pr20",      name: "PR Machine",       icon: "🚀", desc: "Set 20 PRs",                    check: (s: AppState) => prCount(s) >= 20 },
+  { id: "goalbw",    name: "Body Goals",       icon: "⚖️", desc: "Hit your bodyweight goal",      check: (s: AppState) => bodyweightGoalHit(s) },
+  { id: "goallift1", name: "Strong Like Bull", icon: "🐂", desc: "Hit a strength goal",           check: (s: AppState) => s.lifts.some(l => l.current >= l.goal && l.goal > 0) },
+  { id: "vol1k",     name: "Volume King",      icon: "🏋️", desc: "5000kg volume in one week",    check: (s: AppState) => weekVolumeCheck(s) >= 5000 },
+  { id: "balanced",  name: "Well-Rounded",     icon: "⚖️", desc: "All attributes ≥ 25",           check: (s: AppState) => Object.values(s.stats || {}).every(v => v >= 25) },
+  { id: "maxstat",   name: "Specialist",       icon: "💎", desc: "Any attribute ≥ 75",            check: (s: AppState) => Object.values(s.stats || {}).some(v => v >= 75) },
 ]
 
 export const DAILY_QUESTS = [
@@ -92,24 +133,9 @@ export const WEEKLY_QUESTS = [
   { id: "pr3",       desc: "Hit 3 PRs this week",          xp: 100, total: 3,    metric: "prs",         unit: "" },
   { id: "train5",    desc: "Train 5 days this week",       xp: 75,  total: 5,    metric: "days",        unit: "" },
   { id: "vol3000",   desc: "Lift 3000kg total volume",     xp: 90,  total: 3000, metric: "volume",      unit: "kg" },
-  { id: "alldisc",   desc: "All 3 disciplines this week",  xp: 60,  total: 3,    metric: "disciplines", unit: "" },
+  { id: "alldisc",   desc: "3+ disciplines this week",     xp: 60,  total: 3,    metric: "disciplines", unit: "" },
   { id: "sess7",     desc: "Log 7 sessions this week",     xp: 90,  total: 7,    metric: "sessions",    unit: "" },
   { id: "exercises", desc: "Log 10 exercises in detail",   xp: 70,  total: 10,   metric: "exercises",   unit: "" },
-]
-
-export const STAT_DEFS = [
-  { key: "str", name: "STR", label: "Strength",     color: "#ef4444" },
-  { key: "con", name: "CON", label: "Conditioning", color: "#4cc9f0" },
-  { key: "tec", name: "TEC", label: "Technique",    color: "#b388ff" },
-  { key: "dis", name: "DIS", label: "Discipline",   color: "#fbbf24" },
-]
-
-export const STAT_METRIC_KEYS = [
-  "level", "totalXp", "beltName", "totalSessions", "sessionsWeek",
-  "sessionsMonth", "dayStreak", "weekGoalStreak", "totalPrs", "prsWeek",
-  "volumeWeek", "volumeTotal", "achievementsUnlocked", "questsCompleted",
-  "weeklyQuestsCompleted", "comboMultiplier", "bodyweightCurrent",
-  "bodyweightGoal", "bodyweight30dChange", "averagePerWeek",
 ]
 
 // Re-exported pure functions used by ACHIEVEMENTS (to avoid circular deps)

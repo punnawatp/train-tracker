@@ -1,4 +1,4 @@
-import type { AppState, Session, Stats } from "./types"
+import type { ActivityType, AppState, Session, Stats } from "./types"
 import { BELTS, DAILY_QUESTS, WEEKLY_QUESTS } from "./constants"
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ export function countByType(sessions: Session[]): Record<string, number> {
   return sessions.reduce((acc, s) => {
     acc[s.type] = (acc[s.type] || 0) + 1
     return acc
-  }, { gym: 0, bjj: 0, mma: 0 } as Record<string, number>)
+  }, {} as Record<string, number>)
 }
 
 export function sessionVolume(sess: Session): number {
@@ -69,7 +69,7 @@ export function weekVolume(sessions: Session[]): number {
   const start = startOfWeek().getTime()
   const end = endOfWeek().getTime()
   return sessions
-    .filter(s => s.type === "gym" && s.ts >= start && s.ts < end)
+    .filter(s => s.ts >= start && s.ts < end && s.exercises && s.exercises.length > 0)
     .reduce((a, s) => a + sessionVolume(s), 0)
 }
 
@@ -99,7 +99,7 @@ export function hasAllThreeInWeek(state: AppState): boolean {
     if (!buckets[k]) buckets[k] = new Set()
     buckets[k].add(sess.type)
   }
-  return Object.values(buckets).some(set => set.has("gym") && set.has("bjj") && set.has("mma"))
+  return Object.values(buckets).some(set => set.size >= 3)
 }
 
 export function prCount(state: AppState): number {
@@ -218,12 +218,12 @@ export function weeklyQuestProgress(state: AppState) {
   const wq = getWeeklyQuest()
   const ws = thisWeekSessions(state.sessions)
   let val = 0
-  if (wq.metric === "days")        val = new Set(ws.map(s => dayKey(s.ts))).size
-  else if (wq.metric === "sessions")    val = ws.length
-  else if (wq.metric === "volume")      val = ws.filter(s => s.type === "gym").reduce((a, s) => a + sessionVolume(s), 0)
+  if (wq.metric === "days")            val = new Set(ws.map(s => dayKey(s.ts))).size
+  else if (wq.metric === "sessions")   val = ws.length
+  else if (wq.metric === "volume")     val = ws.filter(s => s.exercises && s.exercises.length > 0).reduce((a, s) => a + sessionVolume(s), 0)
   else if (wq.metric === "disciplines") val = new Set(ws.map(s => s.type)).size
-  else if (wq.metric === "exercises")   val = ws.reduce((a, s) => a + (s.exercises ? s.exercises.length : 0), 0)
-  else if (wq.metric === "prs")         val = prsThisWeek(state)
+  else if (wq.metric === "exercises")  val = ws.reduce((a, s) => a + (s.exercises ? s.exercises.length : 0), 0)
+  else if (wq.metric === "prs")        val = prsThisWeek(state)
   return { ...wq, value: val, done: val >= wq.total }
 }
 
@@ -233,12 +233,12 @@ export function addStatClamped(stats: Stats, key: keyof Stats, val: number): Sta
   return { ...stats, [key]: Math.min(100, Math.max(0, (stats[key] || 0) + val)) }
 }
 
-export function addStatsForSession(stats: Stats, sess: Session): Stats {
+export function addStatsForSession(stats: Stats, sess: Session, actType: ActivityType): Stats {
   let s = stats
-  if (sess.type === "gym") { s = addStatClamped(s, "str", 2.0); s = addStatClamped(s, "con", 0.5) }
-  else if (sess.type === "bjj") { s = addStatClamped(s, "tec", 2.0); s = addStatClamped(s, "con", 1.0) }
-  else if (sess.type === "mma") { s = addStatClamped(s, "con", 2.0); s = addStatClamped(s, "tec", 1.0); s = addStatClamped(s, "str", 0.5) }
-  s = addStatClamped(s, "dis", 0.5)
+  for (const [key, gain] of Object.entries(actType.statGains)) {
+    if (gain && gain > 0) s = addStatClamped(s, key as keyof Stats, gain)
+  }
+  s = addStatClamped(s, "mnd", 0.5)
   if (sess.exercises) for (const _ of sess.exercises) s = addStatClamped(s, "str", 0.3)
   return s
 }
@@ -295,7 +295,7 @@ export function findMatchingLift(lifts: AppState["lifts"], name: string) {
 export function checkWeeklyGoalsMet(state: AppState): boolean {
   const wk = thisWeekSessions(state.sessions)
   const c = countByType(wk)
-  return c.gym >= state.targets.gym && c.bjj >= state.targets.bjj && c.mma >= state.targets.mma
+  return Object.entries(state.targets).every(([type, goal]) => goal === 0 || (c[type] || 0) >= goal)
 }
 
 // ── Stat widget compute ───────────────────────────────────────────────────────

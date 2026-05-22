@@ -4,12 +4,16 @@ import { useTrainStore } from "@/store/useTrainStore"
 import { startOfWeek } from "@/lib/game-logic"
 
 const LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-const TYPE_COLORS: Record<string, string> = { gym: "#4cc9f0", bjj: "#b388ff", mma: "#ff7043" }
 
 export default function WeekBar() {
   const sessions = useTrainStore(s => s.data.sessions)
+  const activityTypes = useTrainStore(s => s.data.activityTypes)
   const start = startOfWeek()
   const today = new Date(); today.setHours(0, 0, 0, 0)
+
+  function actColor(type: string) {
+    return activityTypes.find(a => a.id === type)?.color ?? "#ff4d3d"
+  }
 
   return (
     <div className="section mt-5">
@@ -34,7 +38,7 @@ export default function WeekBar() {
               <div className="text-[13px] font-bold">{day.getDate()}</div>
               <div className="flex gap-0.5 mt-0.5">
                 {sess.slice(0, 3).map((s, j) => (
-                  <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: TYPE_COLORS[s.type] || "#ff4d3d" }} />
+                  <span key={j} className="w-1.5 h-1.5 rounded-full" style={{ background: actColor(s.type) }} />
                 ))}
               </div>
             </div>

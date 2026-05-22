@@ -7,31 +7,20 @@ interface Props {
   onOpenGymModal: (sessId?: number) => void
 }
 
-const TAG_COLORS: Record<string, string> = {
-  gym: "rgba(76,201,240,0.15):#4cc9f0",
-  bjj: "rgba(179,136,255,0.15):#b388ff",
-  mma: "rgba(255,112,67,0.15):#ff7043",
-}
-
 export default function TodayLog({ onOpenGymModal }: Props) {
   const data = useTrainStore(s => s.data)
   const deleteSession = useTrainStore(s => s.deleteSession)
   const today = todaySessions(data.sessions)
 
-  const todayGym = today.find(s => s.type === "gym")
+  function actColor(type: string) {
+    return data.activityTypes.find(a => a.id === type)?.color ?? "#ff4d3d"
+  }
 
   return (
     <div className="section mt-5">
       <h3 className="section-h">
         Today&apos;s Log{" "}
         <span className="text-[11px] text-muted font-normal">{today.length} session{today.length !== 1 ? "s" : ""}</span>
-        <span className="ml-auto">
-          {todayGym ? (
-            <button onClick={() => onOpenGymModal(todayGym.id)} className="mini-btn solid">+ Add to today&apos;s gym</button>
-          ) : (
-            <button onClick={() => onOpenGymModal()} className="mini-btn solid">+ Log Gym</button>
-          )}
-        </span>
       </h3>
 
       {today.length === 0 ? (
@@ -42,7 +31,8 @@ export default function TodayLog({ onOpenGymModal }: Props) {
         <div className="flex flex-col gap-2.5">
           {today.map(s => {
             const vol = sessionVolume(s)
-            const [bg, color] = (TAG_COLORS[s.type] || "rgba(255,77,61,0.15):#ff4d3d").split(":")
+            const color = actColor(s.type)
+            const actName = data.activityTypes.find(a => a.id === s.type)?.name ?? s.type
             return (
               <div
                 key={s.id}
@@ -51,10 +41,10 @@ export default function TodayLog({ onOpenGymModal }: Props) {
               >
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase" style={{ background: bg, color }}>{s.type.toUpperCase()}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase" style={{ background: color + "26", color }}>{actName}</span>
                     <span className="text-muted text-sm">{fmtTime(s.ts)}</span>
                     <span className="text-gold text-xs font-bold">+{s.xpAwarded || 0} XP</span>
-                    {vol > 0 && <span className="text-gym text-[11px] font-bold">{Math.round(vol).toLocaleString()}kg vol</span>}
+                    {vol > 0 && <span className="text-[11px] font-bold" style={{ color }}>{Math.round(vol).toLocaleString()}kg vol</span>}
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); if (confirm("Delete this session?")) deleteSession(s.id) }}

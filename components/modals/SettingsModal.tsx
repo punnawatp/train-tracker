@@ -14,9 +14,6 @@ interface Props {
 }
 
 const XP_FIELDS = [
-  { key: "gym",              label: "Gym session base XP" },
-  { key: "bjj",              label: "BJJ session base XP" },
-  { key: "mma",              label: "MMA session base XP" },
   { key: "exerciseBonus",    label: "Bonus XP per exercise logged" },
   { key: "exerciseBonusMax", label: "Max exercise bonus XP per session" },
   { key: "prBonus",          label: "PR bonus XP" },

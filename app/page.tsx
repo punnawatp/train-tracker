@@ -27,6 +27,7 @@ import LiftModal from "@/components/modals/LiftModal"
 import AddLiftModal from "@/components/modals/AddLiftModal"
 import WidgetModal from "@/components/modals/WidgetModal"
 import SettingsModal from "@/components/modals/SettingsModal"
+import ActivityModal from "@/components/modals/ActivityModal"
 
 export default function Dashboard() {
   const load = useTrainStore(s => s.load)
@@ -34,7 +35,8 @@ export default function Dashboard() {
   const sections = useTrainStore(s => s.data.ui.sectionsVisible)
   const resetWeek = useTrainStore(s => s.resetWeek)
 
-  const [gymModal, setGymModal] = useState<{ open: boolean; sessId?: number }>({ open: false })
+  const [gymModal, setGymModal] = useState<{ open: boolean; activityId?: string; sessId?: number }>({ open: false })
+  const [activityModal, setActivityModal] = useState<{ open: boolean; activityId?: string }>({ open: false })
   const [liftModal, setLiftModal] = useState<{ open: boolean; liftId: string | null }>({ open: false, liftId: null })
   const [addLiftModal, setAddLiftModal] = useState(false)
   const [widgetModal, setWidgetModal] = useState<{ open: boolean; editId?: string }>({ open: false })
@@ -59,7 +61,17 @@ export default function Dashboard() {
       <LevelUp />
       <ConfettiCanvas />
 
-      <GymModal open={gymModal.open} sessId={gymModal.sessId} onClose={() => setGymModal({ open: false })} />
+      <GymModal
+        open={gymModal.open}
+        activityId={gymModal.activityId}
+        sessId={gymModal.sessId}
+        onClose={() => setGymModal({ open: false })}
+      />
+      <ActivityModal
+        open={activityModal.open}
+        activityId={activityModal.activityId}
+        onClose={() => setActivityModal({ open: false })}
+      />
       <LiftModal open={liftModal.open} liftId={liftModal.liftId} onClose={() => setLiftModal({ open: false, liftId: null })} />
       <AddLiftModal open={addLiftModal} onClose={() => setAddLiftModal(false)} />
       <WidgetModal open={widgetModal.open} editId={widgetModal.editId} onClose={() => setWidgetModal({ open: false })} />
@@ -84,7 +96,10 @@ export default function Dashboard() {
         {sections.quests     && <Quests />}
         {sections.training   && (
           <div className="mb-5">
-            <TrainingCards onOpenGymModal={() => setGymModal({ open: true })} />
+            <TrainingCards
+              onOpenExerciseModal={(actId) => setGymModal({ open: true, activityId: actId })}
+              onOpenActivityModal={(actId) => setActivityModal({ open: true, activityId: actId })}
+            />
           </div>
         )}
         {sections.todayLog   && <TodayLog onOpenGymModal={(id) => setGymModal({ open: true, sessId: id })} />}

@@ -7,15 +7,18 @@ interface Props {
   onOpenGymModal: (sessId: number) => void
 }
 
-const TAG_COLORS: Record<string, { bg: string; color: string }> = {
-  gym: { bg: "rgba(76,201,240,0.15)",  color: "#4cc9f0" },
-  bjj: { bg: "rgba(179,136,255,0.15)", color: "#b388ff" },
-  mma: { bg: "rgba(255,112,67,0.15)",  color: "#ff7043" },
-}
-
 export default function History({ onOpenGymModal }: Props) {
   const sessions = useTrainStore(s => s.data.sessions)
+  const activityTypes = useTrainStore(s => s.data.activityTypes)
   const deleteSession = useTrainStore(s => s.deleteSession)
+
+  function actColor(type: string) {
+    return activityTypes.find(a => a.id === type)?.color ?? "#ff4d3d"
+  }
+
+  function actName(type: string) {
+    return activityTypes.find(a => a.id === type)?.name ?? type
+  }
 
   return (
     <div className="section mt-5">
@@ -28,7 +31,7 @@ export default function History({ onOpenGymModal }: Props) {
         <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
           {sessions.slice(0, 30).map(s => {
             const vol = sessionVolume(s)
-            const tc = TAG_COLORS[s.type] || { bg: "rgba(255,77,61,0.15)", color: "#ff4d3d" }
+            const color = actColor(s.type)
             return (
               <div
                 key={s.id}
@@ -37,10 +40,10 @@ export default function History({ onOpenGymModal }: Props) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase" style={tc}>{s.type.toUpperCase()}</span>
+                    <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase" style={{ background: color + "26", color }}>{actName(s.type)}</span>
                     <span>{fmtDate(s.ts)} · <span className="text-muted">{fmtTime(s.ts)}</span></span>
                     <span className="text-gold text-xs font-bold">+{s.xpAwarded || 0} XP</span>
-                    {vol > 0 && <span className="text-gym text-[11px] font-bold">{Math.round(vol).toLocaleString()} kg vol</span>}
+                    {vol > 0 && <span className="text-[11px] font-bold" style={{ color }}>{Math.round(vol).toLocaleString()} kg vol</span>}
                   </div>
                   <button
                     onClick={e => { e.stopPropagation(); if (confirm("Delete this session?")) deleteSession(s.id) }}

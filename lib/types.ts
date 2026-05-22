@@ -1,6 +1,6 @@
 export interface Session {
   id: number
-  type: "gym" | "bjj" | "mma"
+  type: string
   ts: number
   xpAwarded: number
   exercises: Exercise[]
@@ -56,9 +56,6 @@ export interface Widget {
 }
 
 export interface XpRules {
-  gym: number
-  bjj: number
-  mma: number
   exerciseBonus: number
   exerciseBonusMax: number
   prBonus: number
@@ -68,13 +65,23 @@ export interface XpRules {
 
 export interface Stats {
   str: number
-  con: number
-  tec: number
-  dis: number
+  flex: number
+  mob: number
+  mnd: number
+}
+
+export interface ActivityType {
+  id: string
+  name: string
+  color: string
+  xp: number
+  statGains: Partial<Record<keyof Stats, number>>
+  hasExercises?: boolean
 }
 
 export interface AppState {
-  targets: { gym: number; bjj: number; mma: number }
+  targets: Record<string, number>
+  activityTypes: ActivityType[]
   sessions: Session[]
   xp: number
   weeksGoalsHit: number

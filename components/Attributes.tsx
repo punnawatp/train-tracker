@@ -7,8 +7,7 @@ export default function Attributes() {
   const stats = useTrainStore(s => s.data.stats)
   const R = 110
   const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI]
-  const keys = ["str", "con", "tec", "dis"] as const
-  const labels = ["STR", "CON", "TEC", "DIS"]
+  const keys = STAT_DEFS.map(s => s.key) as (keyof typeof stats)[]
 
   let svgHtml = ""
   for (const r of [0.25, 0.5, 0.75, 1.0]) {
@@ -27,11 +26,10 @@ export default function Attributes() {
     const v = (stats[keys[i]] || 0) / 100
     svgHtml += `<circle cx="${(Math.cos(angles[i]) * R * v).toFixed(1)}" cy="${(Math.sin(angles[i]) * R * v).toFixed(1)}" r="3" fill="#ff4d3d"/>`
   }
-  const colors = ["#ef4444", "#4cc9f0", "#b388ff", "#fbbf24"]
   for (let i = 0; i < 4; i++) {
     const lx = Math.cos(angles[i]) * (R + 22)
     const ly = Math.sin(angles[i]) * (R + 22)
-    svgHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="${colors[i]}" font-size="13" font-weight="700" text-anchor="middle" alignment-baseline="middle">${labels[i]}</text>`
+    svgHtml += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="${STAT_DEFS[i].color}" font-size="13" font-weight="700" text-anchor="middle" alignment-baseline="middle">${STAT_DEFS[i].name}</text>`
   }
 
   return (
@@ -43,8 +41,8 @@ export default function Attributes() {
           {STAT_DEFS.map(s => {
             const v = Math.round(stats[s.key as keyof typeof stats] || 0)
             return (
-              <div key={s.key} className="grid grid-cols-[50px_1fr_40px] gap-2.5 items-center">
-                <div className="text-xs font-bold tracking-wider" style={{ color: s.color }}>{s.name}</div>
+              <div key={s.key} className="grid grid-cols-[80px_1fr_40px] gap-2.5 items-center">
+                <div className="text-xs font-bold tracking-wider" style={{ color: s.color }}>{s.label}</div>
                 <div className="h-2 bg-[#0a0b0e] rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${v}%`, background: s.color }} />
                 </div>
