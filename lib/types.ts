@@ -103,7 +103,7 @@ export interface AppState {
   stats: Stats
   xpRules: XpRules
   widgets: Widget[]
-  ui: { sectionsVisible: Record<string, boolean> }
+  ui: { sectionsVisible: Record<string, boolean>; theme: "dark" | "light" }
   dailyQuests: UserDailyQuest[]
   weeklyQuests: UserWeeklyQuest[]
   dailyCompletions: Record<string, string[]>

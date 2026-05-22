@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import { useTrainStore } from "@/store/useTrainStore"
 import { SECTION_LABELS } from "@/lib/constants"
 import { dayKey } from "@/lib/game-logic"
@@ -24,6 +24,7 @@ const XP_FIELDS = [
 export default function SettingsModal({ open, onClose }: Props) {
   const data = useTrainStore(s => s.data)
   const toggleSection = useTrainStore(s => s.toggleSection)
+  const setTheme = useTrainStore(s => s.setTheme)
   const updateXpRules = useTrainStore(s => s.updateXpRules)
   const addCategory = useTrainStore(s => s.addCategory)
   const renameCategory = useTrainStore(s => s.renameCategory)
@@ -80,6 +81,27 @@ export default function SettingsModal({ open, onClose }: Props) {
         <h2 className="text-lg font-bold mb-1">Settings</h2>
         <p className="text-muted text-sm mb-5">You&apos;re the admin. Tweak everything.</p>
 
+        {/* Theme */}
+        <div className="set-grp">
+          <h3>Theme</h3>
+          <div className="flex gap-2">
+            {(["dark", "light"] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => setTheme(t)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all"
+                style={{
+                  background: data.ui.theme === t ? "#ff4d3d" : "var(--color-panel2)",
+                  color: data.ui.theme === t ? "#fff" : "var(--color-muted)",
+                  border: `1.5px solid ${data.ui.theme === t ? "#ff4d3d" : "var(--color-line)"}`,
+                }}
+              >
+                {t === "dark" ? "🌙 Dark" : "☀️ Light"}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Section visibility */}
         <div className="set-grp">
           <h3>Dashboard sections</h3>
@@ -103,16 +125,15 @@ export default function SettingsModal({ open, onClose }: Props) {
           <h3>XP rules</h3>
           <div className="grid gap-2 items-center" style={{ gridTemplateColumns: "1fr auto" }}>
             {XP_FIELDS.map(f => (
-              <>
-                <label key={f.key + "_label"} className="text-sm">{f.label}</label>
+              <React.Fragment key={f.key}>
+                <label className="text-sm">{f.label}</label>
                 <input
-                  key={f.key + "_input"}
                   type="number" min="0"
                   value={data.xpRules[f.key]}
                   onChange={e => updateXpRules({ [f.key]: parseFloat(e.target.value) || 0 })}
                   className="w-20 bg-panel2 border border-line rounded px-2 py-1 text-sm text-right text-tx focus:outline-none focus:border-accent"
                 />
-              </>
+              </React.Fragment>
             ))}
           </div>
         </div>

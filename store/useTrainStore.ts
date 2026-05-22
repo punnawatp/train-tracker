@@ -45,7 +45,7 @@ const defaultData: AppState = {
   stats: { str: 0, flex: 0, mob: 0, mnd: 0, end: 0 },
   xpRules: { ...DEFAULT_XP_RULES },
   widgets: [],
-  ui: { sectionsVisible: { ...DEFAULT_SECTIONS } },
+  ui: { sectionsVisible: { ...DEFAULT_SECTIONS }, theme: "dark" as const },
   dailyQuests: structuredClone(DEFAULT_DAILY_QUESTS),
   weeklyQuests: structuredClone(DEFAULT_WEEKLY_QUESTS),
   dailyCompletions: {},
@@ -111,6 +111,7 @@ interface StoreState {
   // Settings
   updateXpRules: (rules: Partial<AppState["xpRules"]>) => void
   toggleSection: (key: string, val: boolean) => void
+  setTheme: (theme: "dark" | "light") => void
 
   // Data
   importData: (raw: AppState) => void
@@ -175,6 +176,7 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
   merged.widgets = merged.widgets || []
   merged.ui = merged.ui || {}
   merged.ui.sectionsVisible = { ...DEFAULT_SECTIONS, ...(merged.ui?.sectionsVisible || {}) }
+  merged.ui.theme = merged.ui.theme || "dark"
   merged.lifts = (merged.lifts || []).map(l => ({
     ...l,
     cat: merged.categories.find(c => c.id === l.cat) ? l.cat : "other",
@@ -202,11 +204,10 @@ export const useTrainStore = create<StoreState>((set, get) => ({
 
   load: async () => {
     const raw = await fetchData()
-    if (raw) {
-      set({ data: mergeFromStorage(raw), loading: false })
-    } else {
-      set({ data: structuredClone(defaultData), loading: false })
-    }
+    const data = raw ? mergeFromStorage(raw) : structuredClone(defaultData)
+    document.documentElement.classList.remove("theme-dark", "theme-light")
+    document.documentElement.classList.add(`theme-${data.ui.theme ?? "dark"}`)
+    set({ data, loading: false })
   },
 
   save: async (next: AppState) => {
@@ -581,6 +582,13 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   toggleSection: (key, val) => {
     const { data, save } = get()
     save({ ...data, ui: { ...data.ui, sectionsVisible: { ...data.ui.sectionsVisible, [key]: val } } })
+  },
+
+  setTheme: (theme) => {
+    const { data, save } = get()
+    document.documentElement.classList.remove("theme-dark", "theme-light")
+    document.documentElement.classList.add(`theme-${theme}`)
+    save({ ...data, ui: { ...data.ui, theme } })
   },
 
   // ── Data I/O ────────────────────────────────────────────────────────────────
