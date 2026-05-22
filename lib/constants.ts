@@ -1,4 +1,80 @@
-import type { AppState, ActivityType, Category, Lift, XpRules } from "./types"
+import type { AppState, ActivityType, Category, GearItem, Lift, ShopItem, XpRules } from "./types"
+
+export interface BossConfig { name: string; color: string; hp: number; taunt: string }
+
+export const BOSSES: BossConfig[] = [
+  { name: "Couch Potato",     color: "#ff8fab", hp: 300,  taunt: "I ain't movin' for nobody." },
+  { name: "Sugar Queen",      color: "#ff9f43", hp: 500,  taunt: "You can't out-sugar me." },
+  { name: "Pizza Princess",   color: "#ffd700", hp: 800,  taunt: "Extra cheese, extra me." },
+  { name: "Deep Fry Duchess", color: "#a8e063", hp: 1200, taunt: "Everything's better fried." },
+  { name: "The Sloth",        color: "#4cc9f0", hp: 1800, taunt: "Maybe tomorrow... zzz." },
+  { name: "Lady Laziness",    color: "#b388ff", hp: 2500, taunt: "Effort is so overrated." },
+  { name: "The Final Boss",   color: "#ff4d3d", hp: 4000, taunt: "You will NEVER defeat me!" },
+]
+
+export const GACHA_GEAR: GearItem[] = [
+  // Weapons
+  { id: "g_rusty_sword",  name: "Rusty Sword",  icon: "🗡️", rarity: "common",    slot: "weapon" },
+  { id: "g_iron_sword",   name: "Iron Sword",   icon: "⚔️", rarity: "common",    slot: "weapon" },
+  { id: "g_silver_sword", name: "Silver Sword", icon: "🔪", rarity: "rare",      slot: "weapon" },
+  { id: "g_war_hammer",   name: "War Hammer",   icon: "🔨", rarity: "rare",      slot: "weapon" },
+  { id: "g_battle_axe",   name: "Battle Axe",   icon: "🪓", rarity: "epic",      slot: "weapon" },
+  { id: "g_dragon_blade", name: "Dragon Blade", icon: "🔱", rarity: "epic",      slot: "weapon" },
+  { id: "g_excalibur",    name: "Excalibur",    icon: "✨", rarity: "legendary", slot: "weapon" },
+  // Helmets
+  { id: "g_leather_cap",  name: "Leather Cap",  icon: "⛑️", rarity: "common",    slot: "helmet" },
+  { id: "g_iron_helm",    name: "Iron Helm",    icon: "🪖", rarity: "rare",      slot: "helmet" },
+  { id: "g_mage_hood",    name: "Mage Hood",    icon: "🧢", rarity: "epic",      slot: "helmet" },
+  { id: "g_dragon_crown", name: "Dragon Crown", icon: "👑", rarity: "legendary", slot: "helmet" },
+  // Armors
+  { id: "g_cloth_robe",   name: "Cloth Robe",   icon: "👘", rarity: "common",    slot: "armor" },
+  { id: "g_chain_mail",   name: "Chain Mail",   icon: "🥋", rarity: "rare",      slot: "armor" },
+  { id: "g_plate_armor",  name: "Plate Armor",  icon: "🛡️", rarity: "epic",      slot: "armor" },
+  { id: "g_void_plate",   name: "Void Plate",   icon: "⚜️", rarity: "legendary", slot: "armor" },
+  // Rings
+  { id: "g_copper_ring",  name: "Copper Ring",  icon: "💍", rarity: "common",    slot: "ring" },
+  { id: "g_silver_ring",  name: "Silver Ring",  icon: "💎", rarity: "rare",      slot: "ring" },
+  { id: "g_wizard_ring",  name: "Wizard Ring",  icon: "🔮", rarity: "epic",      slot: "ring" },
+  { id: "g_gods_ring",    name: "Ring of Gods", icon: "✴️", rarity: "legendary", slot: "ring" },
+]
+
+function pickRarityFromWeights(weights: number[]): GearItem["rarity"] {
+  const rarities: GearItem["rarity"][] = ["common", "rare", "epic", "legendary"]
+  const roll = Math.random() * 100
+  let cum = 0
+  for (let i = 0; i < weights.length; i++) {
+    cum += weights[i]
+    if (roll < cum) return rarities[i]
+  }
+  return "common"
+}
+
+function pickGearByRarity(rarity: GearItem["rarity"]): GearItem {
+  const pool = GACHA_GEAR.filter(g => g.rarity === rarity)
+  return pool.length ? pool[Math.floor(Math.random() * pool.length)] : GACHA_GEAR[0]
+}
+
+export function rollGacha(bossIdx: number): GearItem {
+  const weights = bossIdx <= 1 ? [60, 35, 5, 0]
+                : bossIdx <= 3 ? [30, 45, 20, 5]
+                : bossIdx <= 5 ? [0,  40, 45, 15]
+                :                [0,  20, 50, 30]
+  return pickGearByRarity(pickRarityFromWeights(weights))
+}
+
+// 80% salt, 20% gear split as: common 11%, rare 6%, epic 2.4%, legendary 0.6%
+export const GACHA_SHOP_RATES = { salt: 80, common: 11, rare: 6, epic: 2.4, legendary: 0.6 } as const
+
+export function rollShopGacha(): GearItem | null {
+  if (Math.random() * 100 < GACHA_SHOP_RATES.salt) return null
+  const rarityRoll = Math.random() * 100
+  let rarity: GearItem["rarity"]
+  if (rarityRoll < 55) rarity = "common"
+  else if (rarityRoll < 85) rarity = "rare"
+  else if (rarityRoll < 97) rarity = "epic"
+  else rarity = "legendary"
+  return pickGearByRarity(rarity)
+}
 
 export const BELTS = [
   { lvl: 1,  name: "White Belt",  color: "#ffffff", stripe: "#000000" },
@@ -393,6 +469,14 @@ export const EXERCISE_CATALOG: ExerciseCatalogEntry[] = [
   { name: "Lat Pulldown",                  equipment: "Cable",      suggestCat: "upper" },
   { name: "Seated Cable Row",              equipment: "Cable",      suggestCat: "upper" },
   { name: "Triceps Pushdown",              equipment: "Cable",      suggestCat: "upper" },
+]
+
+export const SHOP_ITEMS: ShopItem[] = [
+  { id: "short_sword",  name: "Short Sword",  icon: "⚔️",  desc: "Next session hits +75% harder",         cost: 40,  effect: "dmg_boost",   value: 1.75 },
+  { id: "war_axe",      name: "War Axe",      icon: "🪓",  desc: "Next session hits +150% harder",        cost: 100, effect: "dmg_boost",   value: 2.5  },
+  { id: "bomb",         name: "Bomb",         icon: "💣",  desc: "Deal 200 instant boss damage",          cost: 160, effect: "instant_xp",  value: 200  },
+  { id: "dynamite",     name: "Dynamite",     icon: "💥",  desc: "Deal 500 instant boss damage",          cost: 350, effect: "instant_xp",  value: 500  },
+  { id: "gold_ring",    name: "Gold Ring",    icon: "💍",  desc: "Next session earns double gold",        cost: 120, effect: "gold_boost",  value: 2.0  },
 ]
 
 // Re-exported pure functions used by ACHIEVEMENTS (to avoid circular deps)

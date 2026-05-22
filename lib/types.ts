@@ -108,6 +108,21 @@ export interface AppState {
   weeklyQuests: UserWeeklyQuest[]
   dailyCompletions: Record<string, string[]>
   weeklyCompletions: Record<string, string[]>
+  gold: number
+  inventory: Record<string, number>
+  activeEffects: Record<string, number>
+  currentBoss: { idx: number; hp: number } | null
+  bossKills: Record<number, number>
+  equipped: { weapon: string|null; helmet: string|null; armor: string|null; ring: string|null }
+  gear: Record<string, number>
+}
+
+export interface GearItem {
+  id: string
+  name: string
+  icon: string
+  rarity: "common" | "rare" | "epic" | "legendary"
+  slot: "weapon" | "helmet" | "armor" | "ring"
 }
 
 export type QuestCheckType = "manual" | "any_session" | "activity_session"
@@ -136,4 +151,14 @@ export type Toast = {
   body: string
   sub?: string
   kind?: "xp"
+}
+
+export interface ShopItem {
+  id: string
+  name: string
+  icon: string
+  desc: string
+  cost: number
+  effect: "dmg_boost" | "gold_boost" | "instant_xp"
+  value: number
 }

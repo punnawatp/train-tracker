@@ -331,3 +331,28 @@ select.modal-input   { cursor: pointer; }
 .boss-hit    { animation: boss-hit 0.7s ease-out forwards; }
 .boss-dead   { animation: boss-defeat 0.8s ease-in forwards; }
 .hp-critical { animation: hp-pulse 0.6s ease-in-out infinite; }
+.hero-idle   { animation: boss-idle 3.4s ease-in-out infinite; }
+
+/* Gacha orb spin */
+@keyframes gacha-orb {
+  0%   { transform: scale(0.85) rotate(0deg);   filter: brightness(0.8) hue-rotate(0deg); }
+  25%  { transform: scale(1.15) rotate(90deg);  filter: brightness(1.4) hue-rotate(60deg); }
+  50%  { transform: scale(0.9)  rotate(180deg); filter: brightness(0.9) hue-rotate(120deg); }
+  75%  { transform: scale(1.2)  rotate(270deg); filter: brightness(1.5) hue-rotate(200deg); }
+  100% { transform: scale(0.85) rotate(360deg); filter: brightness(0.8) hue-rotate(360deg); }
+}
+.gacha-orb-spin { animation: gacha-orb 0.9s linear infinite; }
+
+/* Gacha */
+@keyframes gacha-reveal {
+  0%   { transform: scale(0.2) rotate(-15deg); opacity: 0; filter: brightness(5); }
+  55%  { transform: scale(1.18) rotate(4deg);  opacity: 1; filter: brightness(1.8); }
+  75%  { transform: scale(0.95) rotate(-1deg); filter: brightness(1.2); }
+  100% { transform: scale(1)    rotate(0deg);  opacity: 1; filter: brightness(1); }
+}
+@keyframes rarity-ring {
+  0%, 100% { transform: scale(1);    opacity: 0.7; }
+  50%       { transform: scale(1.08); opacity: 1; }
+}
+.gacha-item { animation: gacha-reveal 0.75s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.rarity-ring { animation: rarity-ring 1.4s ease-in-out infinite; }

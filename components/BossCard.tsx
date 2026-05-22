@@ -297,8 +297,14 @@ function spawnExplosion(color: string): Particle[] {
 
 interface HitEvent { id: number; dmg: number; x: number }
 
-export default function BossCard() {
+interface BossCardProps {
+  onShopOpen: () => void
+}
+
+export default function BossCard({ onShopOpen }: BossCardProps) {
   const xp = useTrainStore(s => s.data.xp)
+  const gold = useTrainStore(s => s.data.gold || 0)
+  const activeEffects = useTrainStore(s => s.data.activeEffects || {})
   const prevXpRef = useRef(xp)
   const [anim, setAnim] = useState<"idle" | "hit" | "dead">("idle")
   const [hits, setHits] = useState<HitEvent[]>([])
@@ -347,14 +353,41 @@ export default function BossCard() {
 
       <div className="px-5 pt-4 pb-5">
         {/* Header */}
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-2">
           <span className="text-[10px] font-extrabold uppercase tracking-[2px]" style={{ color: boss.cfg.color }}>
             ⚔ Boss Battle
           </span>
-          {boss.totalDefeated > 0 && (
-            <span className="text-[10px] text-muted">{boss.totalDefeated} defeated 💀</span>
-          )}
+          <div className="flex items-center gap-2">
+            {boss.totalDefeated > 0 && (
+              <span className="text-[10px] text-muted">{boss.totalDefeated} defeated 💀</span>
+            )}
+            <button
+              onClick={onShopOpen}
+              className="text-[10px] font-extrabold px-2.5 py-1 rounded-lg transition-all"
+              style={{ background: "rgba(250,191,25,0.12)", color: "#fbbf24", border: "1px solid rgba(250,191,25,0.25)" }}
+            >
+              🪙 {gold.toLocaleString()}g · Shop
+            </button>
+          </div>
         </div>
+
+        {/* Active buffs row */}
+        {((activeEffects.dmg_boost ?? 1) > 1 || (activeEffects.gold_boost ?? 1) > 1) && (
+          <div className="flex gap-1.5 flex-wrap mb-3">
+            {(activeEffects.dmg_boost ?? 1) > 1 && (
+              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md animate-pulse"
+                style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.25)" }}>
+                ⚔ ×{activeEffects.dmg_boost} NEXT HIT
+              </span>
+            )}
+            {(activeEffects.gold_boost ?? 1) > 1 && (
+              <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-md animate-pulse"
+                style={{ background: "rgba(250,191,25,0.15)", color: "#fbbf24", border: "1px solid rgba(250,191,25,0.25)" }}>
+                🪙 ×{activeEffects.gold_boost} GOLD BOOST
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Phase strip */}
         <PhaseStrip

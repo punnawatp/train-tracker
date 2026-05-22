@@ -40,7 +40,7 @@ export default function Attributes() {
   }
 
   return (
-    <div className="section mt-5">
+    <div id="attributes-section" className="section mt-5">
       <h3 className="section-h">Attributes</h3>
       <div className="grid grid-cols-2 gap-5 items-center max-sm:grid-cols-1">
         <svg viewBox="-150 -150 300 300" className="w-full max-w-[280px] aspect-square mx-auto block" dangerouslySetInnerHTML={{ __html: svgHtml }} />

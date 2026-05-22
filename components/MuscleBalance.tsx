@@ -6,6 +6,8 @@ import { EXERCISE_MUSCLES, MUSCLE_GROUPS, STRENGTH_LEVELS } from "@/lib/constant
 
 const PUSH_MUSCLES = ["chest", "shoulders", "triceps"]
 const PULL_MUSCLES = ["back", "biceps"]
+const KNEE_MUSCLES = ["quads", "adductors"]
+const HIP_MUSCLES  = ["hamstrings", "glutes", "abductors"]
 const UPPER_MUSCLES = ["chest", "back", "shoulders", "biceps", "triceps"]
 const LOWER_MUSCLES = ["quads", "hamstrings", "glutes", "adductors", "abductors"]
 
@@ -63,6 +65,8 @@ export default function MuscleBalance() {
 
   const pushAvg = avgLevel(PUSH_MUSCLES)
   const pullAvg = avgLevel(PULL_MUSCLES)
+  const kneeAvg = avgLevel(KNEE_MUSCLES)
+  const hipAvg  = avgLevel(HIP_MUSCLES)
 
   // All muscles, tracked + untracked
   const allMuscles = Object.entries(MUSCLE_GROUPS).map(([id, def]) => {
@@ -171,6 +175,43 @@ export default function MuscleBalance() {
               {pushAvg > pullAvg
                 ? "Push is stronger — add more back and bicep work."
                 : "Pull is stronger — add more chest and shoulder work."}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Knee vs Hip summary */}
+      {(kneeAvg !== null || hipAvg !== null) && (
+        <div className="mb-4 p-3 bg-panel2 border border-line rounded-xl">
+          <div className="text-[11px] text-muted uppercase tracking-wider font-bold mb-2">Knee vs Hip Dominant</div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Knee",  muscles: "Quads · Adductors", avg: kneeAvg },
+              { label: "Hip",   muscles: "Hamstrings · Glutes · Abductors", avg: hipAvg },
+            ].map(g => {
+              const idx = g.avg !== null ? Math.round(g.avg) : 0
+              return (
+                <div key={g.label}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold">{g.label}</span>
+                    <span className="text-[11px] font-bold" style={{ color: levelColor(idx) }}>{levelName(idx)}</span>
+                  </div>
+                  <div className="flex gap-0.5 mb-1">
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <div key={i} className="flex-1 h-1.5 rounded-sm"
+                        style={{ background: i <= idx ? STRENGTH_LEVELS[i - 1].color : "#1a1d24" }} />
+                    ))}
+                  </div>
+                  <div className="text-[10px] text-muted">{g.muscles}</div>
+                </div>
+              )
+            })}
+          </div>
+          {kneeAvg !== null && hipAvg !== null && Math.abs(kneeAvg - hipAvg) > 1 && (
+            <div className="mt-2 text-[11px] text-gold">
+              {kneeAvg > hipAvg
+                ? "Knee dominant is stronger — add more hip hinge work (deadlifts, hip thrusts)."
+                : "Hip dominant is stronger — add more squat and leg press work."}
             </div>
           )}
         </div>
