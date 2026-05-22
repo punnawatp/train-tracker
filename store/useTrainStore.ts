@@ -15,7 +15,7 @@ import {
 } from "@/lib/game-logic"
 
 const defaultData: AppState = {
-  targets: { gym: 3, bjj: 2, mma: 2 },
+  targets: { gym: 0 },
   activityTypes: structuredClone(DEFAULT_ACTIVITY_TYPES),
   sessions: [],
   xp: 0,
@@ -26,7 +26,7 @@ const defaultData: AppState = {
   lastQuestCompletedDate: null,
   weeklyQuestsDone: 0,
   lastWeeklyQuestWeek: null,
-  bodyweight: { goal: null, history: [] },
+  bodyweight: { goal: null, history: [], bodyfat: { goal: null, history: [] } },
   categories: structuredClone(DEFAULT_CATEGORIES),
   lifts: structuredClone(DEFAULT_LIFTS),
   stats: { str: 0, flex: 0, mob: 0, mnd: 0, end: 0 },
@@ -63,6 +63,8 @@ interface StoreState {
   // Bodyweight
   logBodyweight: (value: number) => void
   updateBwGoal: (goal: number | null) => void
+  logBodyfat: (value: number) => void
+  updateBfGoal: (goal: number | null) => void
 
   // Lifts
   updateLift: (id: string, patch: Partial<AppState["lifts"][0]>, manualCurrentChange?: boolean) => void
@@ -136,6 +138,11 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
     end: rawStats.end || 0,
   }
 
+  merged.bodyweight = {
+    goal: merged.bodyweight?.goal ?? null,
+    history: merged.bodyweight?.history || [],
+    bodyfat: merged.bodyweight?.bodyfat || { goal: null, history: [] },
+  }
   merged.activityTypes = merged.activityTypes?.length ? merged.activityTypes : structuredClone(DEFAULT_ACTIVITY_TYPES)
   merged.categories = merged.categories?.length ? merged.categories : structuredClone(DEFAULT_CATEGORIES)
   merged.xpRules = { ...DEFAULT_XP_RULES, ...(merged.xpRules || {}) }
@@ -323,7 +330,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     save({
       ...data,
       activityTypes: [...data.activityTypes, newAct],
-      targets: { ...data.targets, [newAct.id]: 1 },
+      targets: { ...data.targets, [newAct.id]: 0 },
     })
   },
 
@@ -356,6 +363,17 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   updateBwGoal: (goal) => {
     const { data, save } = get()
     save({ ...data, bodyweight: { ...data.bodyweight, goal } })
+  },
+
+  logBodyfat: (value) => {
+    const { data, save } = get()
+    const bf = data.bodyweight.bodyfat
+    save({ ...data, bodyweight: { ...data.bodyweight, bodyfat: { ...bf, history: [...bf.history, { ts: Date.now(), value }] } } })
+  },
+
+  updateBfGoal: (goal) => {
+    const { data, save } = get()
+    save({ ...data, bodyweight: { ...data.bodyweight, bodyfat: { ...data.bodyweight.bodyfat, goal } } })
   },
 
   // ── Lifts ───────────────────────────────────────────────────────────────────

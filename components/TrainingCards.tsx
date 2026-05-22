@@ -1,7 +1,7 @@
 "use client"
 
 import { useTrainStore } from "@/store/useTrainStore"
-import { countByType, thisWeekSessions } from "@/lib/game-logic"
+import { countByType, todaySessions } from "@/lib/game-logic"
 import { burstConfetti } from "./ui/Confetti"
 
 interface Props {
@@ -13,7 +13,7 @@ export default function TrainingCards({ onOpenExerciseModal, onOpenActivityModal
   const data = useTrainStore(s => s.data)
   const logSession = useTrainStore(s => s.logSession)
   const setTarget = useTrainStore(s => s.setTarget)
-  const counts = countByType(thisWeekSessions(data.sessions))
+  const counts = countByType(todaySessions(data.sessions))
 
   return (
     <div className="flex flex-col gap-3.5">

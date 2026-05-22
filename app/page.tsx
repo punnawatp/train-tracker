@@ -20,7 +20,6 @@ import Lifts from "@/components/Lifts"
 import WeekBar from "@/components/WeekBar"
 import Heatmap from "@/components/Heatmap"
 import Stats from "@/components/Stats"
-import Achievements from "@/components/Achievements"
 import History from "@/components/History"
 
 import GymModal from "@/components/modals/GymModal"
@@ -117,7 +116,6 @@ export default function Dashboard() {
         {sections.thisWeek   && <WeekBar />}
         {sections.heatmap    && <Heatmap />}
         {sections.stats      && <Stats />}
-        {sections.achievements && <Achievements />}
         {sections.history    && <History onOpenGymModal={(id) => setGymModal({ open: true, sessId: id })} />}
 
         <footer className="text-center mt-8 text-muted text-xs">Your data lives in the cloud. You&apos;re the admin — bend it to your will.</footer>

@@ -41,6 +41,11 @@ export interface BodyweightEntry {
   value: number
 }
 
+export interface BodyfatEntry {
+  ts: number
+  value: number
+}
+
 export type WidgetType = "stat" | "lift" | "attribute" | "note"
 
 export interface Widget {
@@ -92,7 +97,7 @@ export interface AppState {
   lastQuestCompletedDate: string | null
   weeklyQuestsDone: number
   lastWeeklyQuestWeek: string | null
-  bodyweight: { goal: number | null; history: BodyweightEntry[] }
+  bodyweight: { goal: number | null; history: BodyweightEntry[]; bodyfat: { goal: number | null; history: BodyfatEntry[] } }
   categories: Category[]
   lifts: Lift[]
   stats: Stats

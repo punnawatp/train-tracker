@@ -4,6 +4,7 @@ import { useTrainStore } from "@/store/useTrainStore"
 import { est1RM, estimateETA, getStrengthLevel } from "@/lib/game-logic"
 import { EXERCISE_MUSCLES, MUSCLE_GROUPS } from "@/lib/constants"
 
+
 interface Props {
   onOpenAddLift: () => void
   onOpenLift: (id: string) => void
@@ -11,6 +12,7 @@ interface Props {
 
 export default function Lifts({ onOpenAddLift, onOpenLift }: Props) {
   const data = useTrainStore(s => s.data)
+  const deleteLift = useTrainStore(s => s.deleteLift)
   const bodyweight = data.bodyweight.history.slice(-1)[0]?.value ?? 0
 
   return (
@@ -55,10 +57,17 @@ export default function Lifts({ onOpenAddLift, onOpenLift }: Props) {
                       className="bg-panel2 border rounded-xl p-3.5"
                       style={{ borderColor: done ? "rgba(74,222,128,0.4)" : "#262a33" }}
                     >
-                      <div className="text-sm font-bold">
-                        {l.name}{done ? " ✓" : ""}
-                        <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ml-1.5" style={{ background: "rgba(76,201,240,0.15)", color: "#4cc9f0" }}>@{l.targetReps || 8}</span>
-                        {l.note && <span className="text-muted text-[11px] ml-1">· {l.note}</span>}
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="text-sm font-bold">
+                          {l.name}{done ? " ✓" : ""}
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ml-1.5" style={{ background: "rgba(76,201,240,0.15)", color: "#4cc9f0" }}>@{l.targetReps || 8}</span>
+                          {l.note && <span className="text-muted text-[11px] ml-1">· {l.note}</span>}
+                        </div>
+                        <button
+                          onClick={() => { if (confirm(`Remove ${l.name}?`)) deleteLift(l.id) }}
+                          className="text-muted hover:text-accent text-base leading-none px-1 shrink-0 mt-0.5"
+                          title="Remove lift"
+                        >×</button>
                       </div>
                       {muscles && (
                         <div className="flex gap-1 flex-wrap mt-1">
