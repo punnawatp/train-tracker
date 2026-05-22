@@ -11,6 +11,28 @@ interface Props {
 
 const EQUIPMENT_ORDER = ["Barbell", "Bodyweight", "Dumbbell", "Machine", "Cable"] as const
 
+function MuscleChips({ name, primaryOnly = false }: { name: string; primaryOnly?: boolean }) {
+  const key = name.toLowerCase().replace(/[^a-z]/g, "")
+  const muscles = EXERCISE_MUSCLES[key]
+  if (!muscles) return null
+  return (
+    <div className="flex gap-1 flex-wrap mt-1">
+      {muscles.primary.map(m => {
+        const mg = MUSCLE_GROUPS[m]
+        return mg ? (
+          <span key={m} className="text-[9px] px-1.5 py-0.5 rounded font-semibold" style={{ background: mg.color + "22", color: mg.color }}>{mg.name}</span>
+        ) : null
+      })}
+      {!primaryOnly && muscles.secondary.map(m => {
+        const mg = MUSCLE_GROUPS[m]
+        return mg ? (
+          <span key={m} className="text-[9px] px-1.5 py-0.5 rounded font-semibold text-muted" style={{ background: "#ffffff08" }}>{mg.name}</span>
+        ) : null
+      })}
+    </div>
+  )
+}
+
 export default function AddLiftModal({ open, onClose }: Props) {
   const data = useTrainStore(s => s.data)
   const addLift = useTrainStore(s => s.addLift)
@@ -76,7 +98,6 @@ export default function AddLiftModal({ open, onClose }: Props) {
 
         {!showForm ? (
           <>
-            {/* Search */}
             <input
               type="text"
               value={search}
@@ -86,20 +107,21 @@ export default function AddLiftModal({ open, onClose }: Props) {
               autoFocus
             />
 
-            {/* Results */}
             <div className="overflow-y-auto flex-1 -mx-1 px-1">
               {grouped.map(({ eq, items }) => (
-                <div key={eq} className="mb-3">
-                  <div className="text-[10px] text-muted font-bold uppercase tracking-widest mb-1.5 px-1">{eq}</div>
-                  <div className="flex flex-col gap-1">
+                <div key={eq} className="mb-4">
+                  <div className="text-[10px] text-muted font-bold uppercase tracking-widest mb-2 px-1">{eq}</div>
+                  <div className="flex flex-col gap-1.5">
                     {items.map(ex => (
                       <button
                         key={ex.name}
                         onClick={() => handleSelect(ex)}
-                        className="flex items-center justify-between px-3 py-2 rounded-lg bg-panel2 border border-line hover:border-accent hover:text-accent text-sm text-left transition"
+                        className="px-3 py-2.5 rounded-lg bg-panel2 border border-line hover:border-accent text-left transition group"
                       >
-                        <span>{ex.name}</span>
-                        <span className="text-[10px] text-muted ml-2 shrink-0">{ex.suggestCat}</span>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold group-hover:text-accent transition">{ex.name}</span>
+                        </div>
+                        <MuscleChips name={ex.name} />
                       </button>
                     ))}
                   </div>
@@ -110,7 +132,6 @@ export default function AddLiftModal({ open, onClose }: Props) {
               )}
             </div>
 
-            {/* Custom option */}
             <div className="mt-3 pt-3 border-t border-line shrink-0">
               <button
                 onClick={() => setCustomMode(true)}
@@ -122,7 +143,6 @@ export default function AddLiftModal({ open, onClose }: Props) {
           </>
         ) : (
           <>
-            {/* Back + selected name */}
             <button
               onClick={() => { setSelected(null); setCustomMode(false) }}
               className="flex items-center gap-2 text-sm text-muted hover:text-tx mb-4 shrink-0 transition"
@@ -138,32 +158,15 @@ export default function AddLiftModal({ open, onClose }: Props) {
                   className="modal-input" placeholder="e.g. Cable Fly" autoFocus
                 />
               </>
-            ) : (() => {
-              const muscleKey = selected ? selected.name.toLowerCase().replace(/[^a-z]/g, "") : ""
-              const muscles = EXERCISE_MUSCLES[muscleKey]
-              return (
-                <div className="mb-4 p-3 bg-panel2 border border-line rounded-xl shrink-0">
-                  <div className="font-bold text-sm">{liftName}</div>
-                  <div className="text-[11px] text-muted mt-0.5">{selected?.equipment}</div>
-                  {muscles && (
-                    <div className="flex gap-1 flex-wrap mt-2">
-                      {muscles.primary.map(m => {
-                        const mg = MUSCLE_GROUPS[m]
-                        return mg ? (
-                          <span key={m} className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ background: mg.color + "22", color: mg.color }}>{mg.name}</span>
-                        ) : null
-                      })}
-                      {muscles.secondary.map(m => {
-                        const mg = MUSCLE_GROUPS[m]
-                        return mg ? (
-                          <span key={m} className="text-[10px] px-1.5 py-0.5 rounded font-semibold text-muted" style={{ background: "#ffffff08" }}>{mg.name}</span>
-                        ) : null
-                      })}
-                    </div>
-                  )}
+            ) : (
+              <div className="mb-4 p-3 bg-panel2 border border-line rounded-xl shrink-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-sm">{liftName}</span>
+                  <span className="text-[10px] text-muted">{selected?.equipment}</span>
                 </div>
-              )
-            })()}
+                <MuscleChips name={liftName} />
+              </div>
+            )}
 
             <label className="field-label">Category</label>
             <select value={cat} onChange={e => setCat(e.target.value)} className="modal-input">

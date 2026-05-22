@@ -104,6 +104,30 @@ export interface AppState {
   xpRules: XpRules
   widgets: Widget[]
   ui: { sectionsVisible: Record<string, boolean> }
+  dailyQuests: UserDailyQuest[]
+  weeklyQuests: UserWeeklyQuest[]
+  dailyCompletions: Record<string, string[]>
+  weeklyCompletions: Record<string, string[]>
+}
+
+export type QuestCheckType = "manual" | "any_session" | "activity_session"
+export type WeeklyMetric = "days" | "sessions" | "activity_sessions" | "prs" | "daily_completions"
+
+export interface UserDailyQuest {
+  id: string
+  desc: string
+  xp: number
+  checkType: QuestCheckType
+  activityId?: string
+}
+
+export interface UserWeeklyQuest {
+  id: string
+  desc: string
+  xp: number
+  metric: WeeklyMetric
+  target: number
+  activityId?: string
 }
 
 export type Toast = {

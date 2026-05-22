@@ -8,9 +8,9 @@ import PRFlash from "@/components/ui/PRFlash"
 import LevelUp from "@/components/ui/LevelUp"
 import ConfettiCanvas from "@/components/ui/Confetti"
 
-import Hero from "@/components/Hero"
+import BossCard from "@/components/BossCard"
 import Quests from "@/components/Quests"
-import TrainingCards from "@/components/TrainingCards"
+import LogRow from "@/components/LogRow"
 import TodayLog from "@/components/TodayLog"
 import Widgets from "@/components/Widgets"
 import Attributes from "@/components/Attributes"
@@ -92,16 +92,14 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {sections.hero       && <Hero />}
-        {sections.quests     && <Quests />}
+        {sections.hero       && <BossCard />}
         {sections.training   && (
-          <div className="mb-5">
-            <TrainingCards
-              onOpenExerciseModal={(actId) => setGymModal({ open: true, activityId: actId })}
-              onOpenActivityModal={(actId) => setActivityModal({ open: true, activityId: actId })}
-            />
-          </div>
+          <LogRow
+            onOpenExerciseModal={(actId) => setGymModal({ open: true, activityId: actId })}
+            onOpenActivityModal={(actId?: string) => setActivityModal({ open: true, activityId: actId })}
+          />
         )}
+        {sections.quests     && <Quests />}
         {sections.todayLog   && <TodayLog onOpenGymModal={(id) => setGymModal({ open: true, sessId: id })} />}
         {sections.widgets    && <Widgets onOpenWidgetModal={(id) => setWidgetModal({ open: true, editId: id })} />}
         {sections.attributes    && <Attributes />}

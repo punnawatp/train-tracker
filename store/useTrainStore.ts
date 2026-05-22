@@ -2,17 +2,30 @@
 
 import { create } from "zustand"
 import { createClient } from "@/lib/supabase/client"
-import type { ActivityType, AppState, Exercise, Session, Toast, Widget } from "@/lib/types"
+import type { ActivityType, AppState, Exercise, Session, Toast, UserDailyQuest, UserWeeklyQuest, Widget } from "@/lib/types"
 import {
   DEFAULT_SECTIONS, DEFAULT_XP_RULES, DEFAULT_CATEGORIES, DEFAULT_LIFTS, DEFAULT_ACTIVITY_TYPES,
   ACHIEVEMENTS,
 } from "@/lib/constants"
 import {
   addStatsForSession, addStatClamped, checkWeeklyGoalsMet,
-  comboMultiplier, dayKey, findMatchingLift, getDailyQuest,
-  sessionVolume, todaySessions, weekKey, weeklyQuestProgress,
+  comboMultiplier, dayKey, findMatchingLift,
+  isDailyQuestDone, weeklyQuestProgressValue,
+  sessionVolume, todaySessions, weekKey,
   xpToLevel, beltFor,
 } from "@/lib/game-logic"
+
+const DEFAULT_DAILY_QUESTS: UserDailyQuest[] = [
+  { id: "dq_default_1", desc: "Log any workout today", xp: 50, checkType: "any_session" },
+  { id: "dq_default_2", desc: "Log your bodyweight", xp: 20, checkType: "manual" },
+  { id: "dq_default_3", desc: "Hit the gym today", xp: 75, checkType: "activity_session", activityId: "gym" },
+]
+
+const DEFAULT_WEEKLY_QUESTS: UserWeeklyQuest[] = [
+  { id: "wq_default_1", desc: "Work out 3 times this week", xp: 150, metric: "sessions", target: 3 },
+  { id: "wq_default_2", desc: "Train on 4 different days", xp: 200, metric: "days", target: 4 },
+  { id: "wq_default_3", desc: "Complete 5 daily quests", xp: 100, metric: "daily_completions", target: 5 },
+]
 
 const defaultData: AppState = {
   targets: { gym: 0 },
@@ -33,6 +46,10 @@ const defaultData: AppState = {
   xpRules: { ...DEFAULT_XP_RULES },
   widgets: [],
   ui: { sectionsVisible: { ...DEFAULT_SECTIONS } },
+  dailyQuests: structuredClone(DEFAULT_DAILY_QUESTS),
+  weeklyQuests: structuredClone(DEFAULT_WEEKLY_QUESTS),
+  dailyCompletions: {},
+  weeklyCompletions: {},
 }
 
 interface StoreState {
@@ -75,6 +92,15 @@ interface StoreState {
   addCategory: (name: string) => void
   renameCategory: (id: string, name: string) => void
   deleteCategory: (id: string) => void
+
+  // Quests
+  addDailyQuest: (quest: Omit<UserDailyQuest, "id">) => void
+  removeDailyQuest: (id: string) => void
+  updateDailyQuest: (id: string, patch: Partial<Omit<UserDailyQuest, "id">>) => void
+  completeQuestManually: (questId: string) => void
+  addWeeklyQuest: (quest: Omit<UserWeeklyQuest, "id">) => void
+  removeWeeklyQuest: (id: string) => void
+  updateWeeklyQuest: (id: string, patch: Partial<Omit<UserWeeklyQuest, "id">>) => void
 
   // Widgets
   addWidget: (w: Omit<Widget, "id">) => void
@@ -158,6 +184,10 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
       return { ts: Number(raw["ts"] ?? 0), weight: Number(raw["weight"] ?? 0), reps: Number(raw["reps"] ?? (l.targetReps || 8)) }
     }),
   }))
+  merged.dailyQuests = merged.dailyQuests?.length ? merged.dailyQuests : structuredClone(DEFAULT_DAILY_QUESTS)
+  merged.weeklyQuests = merged.weeklyQuests?.length ? merged.weeklyQuests : structuredClone(DEFAULT_WEEKLY_QUESTS)
+  merged.dailyCompletions = merged.dailyCompletions || {}
+  merged.weeklyCompletions = merged.weeklyCompletions || {}
   return merged
 }
 
@@ -234,30 +264,48 @@ export const useTrainStore = create<StoreState>((set, get) => ({
         xp: next.xp + next.xpRules.weeklyBonus,
         stats: addStatClamped(next.stats, "mnd", 3.0),
       }
-      addToast({ title: "WEEK COMPLETE", body: "All goals hit!", sub: `+${next.xpRules.weeklyBonus} XP · +3 MND`, kind: "xp" })
+      addToast({ title: "WEEK COMPLETE", body: "All goals hit!", sub: `+${next.xpRules.weeklyBonus} DMG bonus`, kind: "xp" })
     }
 
-    // Daily quest
-    const dq = getDailyQuest()
+    // Auto-complete daily quests
     const todayK = dayKey(new Date())
     const todaySess = todaySessions(next.sessions)
-    if (next.lastQuestCompletedDate !== todayK && dq.predicate(todaySess)) {
-      next = { ...next, xp: next.xp + dq.xp, questsDone: (next.questsDone || 0) + 1, lastQuestCompletedDate: todayK }
-      addToast({ title: "DAILY QUEST", body: dq.desc, sub: `+${dq.xp} XP`, kind: "xp" })
+    const doneTodaySet = new Set(next.dailyCompletions?.[todayK] || [])
+    for (const quest of (next.dailyQuests || [])) {
+      if (doneTodaySet.has(quest.id) || quest.checkType === "manual") continue
+      if (isDailyQuestDone(next, quest, todaySess)) {
+        doneTodaySet.add(quest.id)
+        next = {
+          ...next,
+          xp: next.xp + quest.xp,
+          questsDone: (next.questsDone || 0) + 1,
+          dailyCompletions: { ...(next.dailyCompletions || {}), [todayK]: [...doneTodaySet] },
+        }
+        addToast({ title: "DAILY QUEST", body: quest.desc, sub: `+${quest.xp} DMG`, kind: "xp" })
+      }
     }
 
-    // Weekly quest
-    const wkProg = weeklyQuestProgress(next)
+    // Auto-complete weekly quests
     const wkKey = weekKey()
-    if (wkProg.done && next.lastWeeklyQuestWeek !== wkKey) {
-      next = { ...next, xp: next.xp + wkProg.xp, weeklyQuestsDone: (next.weeklyQuestsDone || 0) + 1, lastWeeklyQuestWeek: wkKey }
-      addToast({ title: "WEEKLY QUEST", body: wkProg.desc, sub: `+${wkProg.xp} XP`, kind: "xp" })
+    const doneThisWeekSet = new Set(next.weeklyCompletions?.[wkKey] || [])
+    for (const quest of (next.weeklyQuests || [])) {
+      if (doneThisWeekSet.has(quest.id)) continue
+      if (weeklyQuestProgressValue(next, quest) >= quest.target) {
+        doneThisWeekSet.add(quest.id)
+        next = {
+          ...next,
+          xp: next.xp + quest.xp,
+          weeklyQuestsDone: (next.weeklyQuestsDone || 0) + 1,
+          weeklyCompletions: { ...(next.weeklyCompletions || {}), [wkKey]: [...doneThisWeekSet] },
+        }
+        addToast({ title: "WEEKLY QUEST", body: quest.desc, sub: `+${quest.xp} DMG`, kind: "xp" })
+      }
     }
 
     const subBits: string[] = []
     if (multi > 1) subBits.push(`×${multi.toFixed(2)}`)
     if (exercises.length > 0) subBits.push(`${exercises.length} ex · ${Math.round(sessionVolume(session))}kg`)
-    addToast({ title: `+${earned} XP`, body: actType.name + " logged", sub: subBits.join(" · ") || undefined, kind: "xp" })
+    addToast({ title: `BOSS HIT! -${earned} HP`, body: actType.name + " logged", sub: subBits.join(" · ") || undefined, kind: "xp" })
 
     if (prsHit.length > 0) showPRFlash(prsHit[0].name, prsHit[0].val)
 
@@ -356,7 +404,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
       stats: addStatClamped(data.stats, "mnd", 0.3),
       bodyweight: { ...data.bodyweight, history: [...data.bodyweight.history, { ts: Date.now(), value }] },
     }
-    addToast({ title: `+${data.xpRules.bodyweightLog} XP`, body: `Bodyweight: ${value} kg`, sub: "+0.3 MND", kind: "xp" })
+    addToast({ title: `BOSS HIT! -${data.xpRules.bodyweightLog} HP`, body: `Bodyweight: ${value} kg`, kind: "xp" })
     save(next)
   },
 
@@ -427,6 +475,74 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     save({ ...data, categories: cats, lifts })
   },
 
+  // ── Quests ──────────────────────────────────────────────────────────────────
+
+  addDailyQuest: (quest) => {
+    const { data, save } = get()
+    save({ ...data, dailyQuests: [...(data.dailyQuests || []), { ...quest, id: "dq_" + Date.now() }] })
+  },
+
+  removeDailyQuest: (id) => {
+    const { data, save } = get()
+    save({ ...data, dailyQuests: (data.dailyQuests || []).filter(q => q.id !== id) })
+  },
+
+  updateDailyQuest: (id, patch) => {
+    const { data, save } = get()
+    save({ ...data, dailyQuests: (data.dailyQuests || []).map(q => q.id === id ? { ...q, ...patch } : q) })
+  },
+
+  completeQuestManually: (questId) => {
+    const { data, save, addToast } = get()
+    const quest = (data.dailyQuests || []).find(q => q.id === questId)
+    if (!quest) return
+    const todayK = dayKey(new Date())
+    const doneTodaySet = new Set(data.dailyCompletions?.[todayK] || [])
+    if (doneTodaySet.has(questId)) return
+    doneTodaySet.add(questId)
+    const next: AppState = {
+      ...data,
+      xp: data.xp + quest.xp,
+      questsDone: (data.questsDone || 0) + 1,
+      dailyCompletions: { ...(data.dailyCompletions || {}), [todayK]: [...doneTodaySet] },
+    }
+    addToast({ title: "DAILY QUEST", body: quest.desc, sub: `+${quest.xp} DMG`, kind: "xp" })
+
+    // Also check weekly quests after manual daily completion
+    const wkKey = weekKey()
+    let wkNext = next
+    const doneThisWeekSet = new Set(next.weeklyCompletions?.[wkKey] || [])
+    for (const wq of (next.weeklyQuests || [])) {
+      if (doneThisWeekSet.has(wq.id)) continue
+      if (weeklyQuestProgressValue(wkNext, wq) >= wq.target) {
+        doneThisWeekSet.add(wq.id)
+        wkNext = {
+          ...wkNext,
+          xp: wkNext.xp + wq.xp,
+          weeklyQuestsDone: (wkNext.weeklyQuestsDone || 0) + 1,
+          weeklyCompletions: { ...(wkNext.weeklyCompletions || {}), [wkKey]: [...doneThisWeekSet] },
+        }
+        addToast({ title: "WEEKLY QUEST", body: wq.desc, sub: `+${wq.xp} DMG`, kind: "xp" })
+      }
+    }
+    save(wkNext)
+  },
+
+  addWeeklyQuest: (quest) => {
+    const { data, save } = get()
+    save({ ...data, weeklyQuests: [...(data.weeklyQuests || []), { ...quest, id: "wq_" + Date.now() }] })
+  },
+
+  removeWeeklyQuest: (id) => {
+    const { data, save } = get()
+    save({ ...data, weeklyQuests: (data.weeklyQuests || []).filter(q => q.id !== id) })
+  },
+
+  updateWeeklyQuest: (id, patch) => {
+    const { data, save } = get()
+    save({ ...data, weeklyQuests: (data.weeklyQuests || []).map(q => q.id === id ? { ...q, ...patch } : q) })
+  },
+
   // ── Widgets ─────────────────────────────────────────────────────────────────
 
   addWidget: (w) => {
@@ -455,6 +571,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   },
 
   // ── Settings ────────────────────────────────────────────────────────────────
+
 
   updateXpRules: (rules) => {
     const { data, save } = get()

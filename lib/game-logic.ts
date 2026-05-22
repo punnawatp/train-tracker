@@ -1,4 +1,4 @@
-import type { ActivityType, AppState, Session, Stats } from "./types"
+import type { ActivityType, AppState, Session, Stats, UserDailyQuest, UserWeeklyQuest } from "./types"
 import { BELTS, DAILY_QUESTS, STRENGTH_LEVELS, STRENGTH_STANDARDS, WEEKLY_QUESTS } from "./constants"
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -225,6 +225,39 @@ export function weeklyQuestProgress(state: AppState) {
   else if (wq.metric === "exercises")  val = ws.reduce((a, s) => a + (s.exercises ? s.exercises.length : 0), 0)
   else if (wq.metric === "prs")        val = prsThisWeek(state)
   return { ...wq, value: val, done: val >= wq.total }
+}
+
+// ── User-defined quests ───────────────────────────────────────────────────────
+
+export function isDailyQuestDone(state: AppState, quest: UserDailyQuest, daySessions: Session[]): boolean {
+  const todayK = dayKey(new Date())
+  const completedToday = state.dailyCompletions?.[todayK] || []
+  if (completedToday.includes(quest.id)) return true
+  if (quest.checkType === "any_session") return daySessions.length >= 1
+  if (quest.checkType === "activity_session") return daySessions.some(s => s.type === quest.activityId)
+  return false
+}
+
+export function weeklyQuestProgressValue(state: AppState, quest: UserWeeklyQuest): number {
+  const ws = thisWeekSessions(state.sessions)
+  switch (quest.metric) {
+    case "days": return new Set(ws.map(s => dayKey(s.ts))).size
+    case "sessions": return ws.length
+    case "activity_sessions": return ws.filter(s => s.type === quest.activityId).length
+    case "prs": return prsThisWeek(state)
+    case "daily_completions": {
+      const dc = state.dailyCompletions || {}
+      const weekStart = startOfWeek()
+      const weekEnd = endOfWeek()
+      return Object.entries(dc).filter(([dk, ids]) => {
+        if (!ids?.length) return false
+        const [y, m, d] = dk.split("-").map(Number)
+        const date = new Date(y, m - 1, d)
+        return date >= weekStart && date < weekEnd
+      }).length
+    }
+    default: return 0
+  }
 }
 
 // ── Stats ─────────────────────────────────────────────────────────────────────
