@@ -1,4 +1,4 @@
-import type { ActivityType, AppState, Session, Stats, UserDailyQuest, UserWeeklyQuest } from "./types"
+import type { ActivityType, AppState, GearItem, Session, Stats, UserDailyQuest, UserWeeklyQuest } from "./types"
 import { STRENGTH_LEVELS, STRENGTH_STANDARDS } from "./constants"
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
@@ -302,6 +302,61 @@ export function computeStatMetric(key: string, state: AppState): { v: string; su
     }
     default: return { v: "—" }
   }
+}
+
+// ── Boss spin wheel ───────────────────────────────────────────────────────────
+
+export function gearAttackPower(rarity: GearItem["rarity"]): number {
+  return ({ common: 10, rare: 25, epic: 60, legendary: 150 } as const)[rarity]
+}
+
+export function totalAttackPower(
+  equipped: AppState["equipped"] | undefined,
+  allGear: GearItem[],
+): number {
+  if (!equipped) return 0
+  return (["weapon", "helmet", "armor", "ring"] as const).reduce((sum, slot) => {
+    const id = equipped[slot]
+    if (!id) return sum
+    const item = allGear.find(g => g.id === id)
+    return item ? sum + gearAttackPower(item.rarity) : sum
+  }, 0)
+}
+
+export interface WheelSegment {
+  label: string
+  color: string
+  dmgMultiplier: number
+  pct: number
+}
+
+export function buildWheelSegments(atk: number): WheelSegment[] {
+  const t = Math.min(1, atk / 400)
+  const lerp = (a: number, b: number) => a + (b - a) * t
+  const miss    = lerp(50, 5)
+  const graze   = lerp(25, 10)
+  const hit     = lerp(15, 25)
+  const strong  = lerp(7, 30)
+  const crit    = lerp(3, 20)
+  const perfect = 100 - miss - graze - hit - strong - crit
+  return [
+    { label: "MISS",     color: "#4b5563", dmgMultiplier: 0,   pct: miss    },
+    { label: "GRAZE",    color: "#4cc9f0", dmgMultiplier: 0.5, pct: graze   },
+    { label: "HIT",      color: "#4ade80", dmgMultiplier: 1.0, pct: hit     },
+    { label: "STRONG",   color: "#fbbf24", dmgMultiplier: 1.5, pct: strong  },
+    { label: "CRITICAL", color: "#fb923c", dmgMultiplier: 2.5, pct: crit    },
+    { label: "PERFECT",  color: "#ff4d3d", dmgMultiplier: 4.0, pct: perfect },
+  ]
+}
+
+export function rollWheelSegment(segments: WheelSegment[]): number {
+  const roll = Math.random() * 100
+  let cum = 0
+  for (let i = 0; i < segments.length; i++) {
+    cum += segments[i].pct
+    if (roll < cum) return i
+  }
+  return segments.length - 1
 }
 
 // ── Strength levels ───────────────────────────────────────────────────────────

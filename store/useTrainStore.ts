@@ -14,6 +14,7 @@ import {
   dayKey, findMatchingLift, streakMultiplier,
   isDailyQuestDone, weeklyQuestProgressValue,
   sessionVolume, todaySessions, weekKey,
+  totalAttackPower,
 } from "@/lib/game-logic"
 
 const DEFAULT_DAILY_QUESTS: UserDailyQuest[] = [
@@ -133,6 +134,7 @@ interface StoreState {
   gachaPreClaimed: boolean
   startBossBattle: (idx: number) => void
   abandonBoss: () => void
+  dealBossDamage: (dmg: number) => void
   equipGear: (slot: "weapon" | "helmet" | "armor" | "ring", gearId: string | null) => void
   claimGachaResult: () => void
   pullGacha: (count: 1 | 10) => void
@@ -367,29 +369,6 @@ export const useTrainStore = create<StoreState>((set, get) => ({
 
     // Clear gold boost effect
     next = { ...next, activeEffects: { ...next.activeEffects, gold_boost: 1 } }
-
-    // Boss damage: session coins × dmg boost
-    const dmgBoost = data.activeEffects?.dmg_boost ?? 1
-    if (next.currentBoss) {
-      const bossDmg = Math.round(actType.coinReward * dmgBoost)
-      const newHp = Math.max(0, next.currentBoss.hp - bossDmg)
-      if (newHp <= 0) {
-        const bossIdx = next.currentBoss.idx
-        const bossConfig = BOSSES[Math.min(bossIdx, BOSSES.length - 1)]
-        const gearRolled = rollGacha(bossIdx)
-        next = {
-          ...next,
-          currentBoss: null,
-          bossKills: { ...(next.bossKills || {}), [bossIdx]: ((next.bossKills || {})[bossIdx] || 0) + 1 },
-          activeEffects: { ...next.activeEffects, dmg_boost: 1 },
-        }
-        set({ gachaResult: [gearRolled] })
-        addToast({ title: "BOSS DEFEATED!", body: `${bossConfig.name} is down!`, sub: "Claim your loot!" })
-      } else {
-        next = { ...next, currentBoss: { ...next.currentBoss, hp: newHp }, activeEffects: { ...next.activeEffects, dmg_boost: 1 } }
-        addToast({ title: `⚔ BOSS HIT! -${bossDmg} HP`, body: actType.name, sub: `${newHp.toLocaleString()} HP remaining` })
-      }
-    }
 
     // Toast
     const subBits: string[] = [`+${sessionCoins}🪙`]
@@ -685,13 +664,33 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const bossConfig = BOSSES[Math.min(idx, BOSSES.length - 1)]
     const maxHp = bossConfig.hp + Math.max(0, idx - (BOSSES.length - 1)) * 500
     save({ ...data, currentBoss: { idx, hp: maxHp } })
-    addToast({ title: "BOSS BATTLE STARTED!", body: bossConfig.name, sub: `${maxHp.toLocaleString()} HP · Log sessions to deal damage` })
+    addToast({ title: "BOSS BATTLE STARTED!", body: bossConfig.name, sub: `${maxHp.toLocaleString()} HP · Spin the wheel to attack!` })
   },
 
   abandonBoss: () => {
     const { data, save } = get()
     if (!data.currentBoss) return
     save({ ...data, currentBoss: null })
+  },
+
+  dealBossDamage: (dmg) => {
+    const { data, save, addToast } = get()
+    if (!data.currentBoss || dmg <= 0) return
+    const newHp = Math.max(0, data.currentBoss.hp - dmg)
+    if (newHp <= 0) {
+      const bossIdx = data.currentBoss.idx
+      const bossConfig = BOSSES[Math.min(bossIdx, BOSSES.length - 1)]
+      const gearRolled = rollGacha(bossIdx)
+      save({
+        ...data,
+        currentBoss: null,
+        bossKills: { ...(data.bossKills || {}), [bossIdx]: ((data.bossKills || {})[bossIdx] || 0) + 1 },
+      })
+      set({ gachaResult: [gearRolled] })
+      addToast({ title: "BOSS DEFEATED!", body: `${bossConfig.name} is down!`, sub: "Claim your loot!" })
+    } else {
+      save({ ...data, currentBoss: { ...data.currentBoss, hp: newHp } })
+    }
   },
 
   // ── Social ───────────────────────────────────────────────────────────────────
