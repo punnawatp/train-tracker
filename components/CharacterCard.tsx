@@ -189,33 +189,53 @@ function GearSlot({ label, icon, name, color, empty, onEmpty, onUnequip }: SlotP
   const bg = empty ? "rgba(255,255,255,0.02)" : `${borderColor}14`
   return (
     <div className="flex flex-col items-center gap-1">
-      <button
-        onClick={empty ? onEmpty : undefined}
-        className="relative flex items-center justify-center rounded-xl transition-all"
-        style={{
-          width: 50, height: 50,
-          background: bg,
-          border: `2px solid ${borderColor}`,
-          boxShadow: empty ? "none" : `0 0 10px ${borderColor}55`,
-          cursor: empty ? "pointer" : "default",
-        }}
-        title={empty ? "Open Gacha" : name}
-      >
-        {icon ? (
-          <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
-        ) : (
-          <span style={{ fontSize: 16, color: "#2a2d36" }}>?</span>
-        )}
-        {!empty && onUnequip && (
-          <button
-            onClick={onUnequip}
-            className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
-            style={{ background: "#1a1d26", border: "1px solid #3a3d46", color: "#8a90a0" }}
-          >
-            ×
-          </button>
-        )}
-      </button>
+      {empty ? (
+        <button
+          onClick={onEmpty}
+          className="relative flex items-center justify-center rounded-xl transition-all"
+          style={{
+            width: 50, height: 50,
+            background: bg,
+            border: `2px solid ${borderColor}`,
+            boxShadow: "none",
+            cursor: "pointer",
+          }}
+          title="Open Gacha"
+        >
+          {icon ? (
+            <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+          ) : (
+            <span style={{ fontSize: 16, color: "#2a2d36" }}>?</span>
+          )}
+        </button>
+      ) : (
+        <div
+          className="relative flex items-center justify-center rounded-xl transition-all"
+          style={{
+            width: 50, height: 50,
+            background: bg,
+            border: `2px solid ${borderColor}`,
+            boxShadow: `0 0 10px ${borderColor}55`,
+            cursor: "default",
+          }}
+          title={name}
+        >
+          {icon ? (
+            <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+          ) : (
+            <span style={{ fontSize: 16, color: "#2a2d36" }}>?</span>
+          )}
+          {onUnequip && (
+            <button
+              onClick={onUnequip}
+              className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+              style={{ background: "#1a1d26", border: "1px solid #3a3d46", color: "#8a90a0" }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
       <span className="text-[8px] font-extrabold uppercase tracking-widest"
         style={{ color: empty ? "#3a3d46" : borderColor }}>
         {label}

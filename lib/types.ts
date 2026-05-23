@@ -115,6 +115,7 @@ export interface AppState {
   bossKills: Record<number, number>
   equipped: { weapon: string|null; helmet: string|null; armor: string|null; ring: string|null }
   gear: Record<string, number>
+  friends: string[]
 }
 
 export interface GearItem {

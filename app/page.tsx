@@ -22,6 +22,7 @@ import Heatmap from "@/components/Heatmap"
 import Stats from "@/components/Stats"
 import History from "@/components/History"
 
+import FriendsPage from "@/components/social/FriendsPage"
 import GymModal from "@/components/modals/GymModal"
 import LiftModal from "@/components/modals/LiftModal"
 import AddLiftModal from "@/components/modals/AddLiftModal"
@@ -32,13 +33,14 @@ import ShopModal from "@/components/modals/ShopModal"
 import BossModal from "@/components/modals/BossModal"
 import GachaModal from "@/components/modals/GachaModal"
 
-type Page = "character" | "training" | "progress" | "history"
+type Page = "character" | "training" | "progress" | "history" | "friends"
 
 const NAV: { id: Page; icon: string; label: string }[] = [
   { id: "character", icon: "⚔",  label: "Character" },
   { id: "training",  icon: "💪", label: "Training"  },
   { id: "progress",  icon: "📊", label: "Progress"  },
   { id: "history",   icon: "📜", label: "History"   },
+  { id: "friends",   icon: "👥", label: "Friends"   },
 ]
 
 export default function Dashboard() {
@@ -186,6 +188,13 @@ export default function Dashboard() {
                   onOpenAddLift={() => setAddLiftModal(true)}
                   onOpenLift={(id) => setLiftModal({ open: true, liftId: id })}
                 />
+              </>
+            )}
+
+            {page === "friends" && (
+              <>
+                <SectionHeader title="Friends" sub="Connect and compare with friends" />
+                <FriendsPage />
               </>
             )}
 

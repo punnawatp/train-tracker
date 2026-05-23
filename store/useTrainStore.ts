@@ -8,6 +8,7 @@ import {
   ACHIEVEMENTS, SHOP_ITEMS, BOSSES, GACHA_GEAR, rollGacha, rollShopGacha,
 } from "@/lib/constants"
 import type { GearItem } from "@/lib/types"
+import { loadCurrentProfile, setUserProfile } from "@/lib/social"
 import {
   addStatsForSession, addStatClamped, checkWeeklyGoalsMet,
   dayKey, findMatchingLift,
@@ -57,6 +58,7 @@ const defaultData: AppState = {
   bossKills: {},
   equipped: { weapon: null, helmet: null, armor: null, ring: null },
   gear: {},
+  friends: [],
 }
 
 interface StoreState {
@@ -65,6 +67,7 @@ interface StoreState {
   toasts: Toast[]
   prFlash: { name: string; val: string } | null
   levelUpInfo: { level: number; beltName: string; stripes: number } | null
+  username: string | null
 
   // Lifecycle
   load: () => Promise<void>
@@ -123,6 +126,11 @@ interface StoreState {
   // Shop
   buyItem: (itemId: string) => void
   useItem: (itemId: string) => void
+
+  // Social
+  setUsername: (username: string) => Promise<{ error?: string }>
+  addFriend: (userId: string) => void
+  removeFriend: (userId: string) => void
 
   // Boss & Gacha
   gachaResult: Array<GearItem | "salt"> | null
@@ -222,6 +230,7 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
     merged.equipped = { ...merged.equipped, weapon: rawRec["equippedWeapon"] as string }
   }
   merged.gear = merged.gear || {}
+  merged.friends = merged.friends || []
   return merged
 }
 
@@ -233,15 +242,16 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   levelUpInfo: null,
   gachaResult: null,
   gachaPreClaimed: false,
+  username: null,
 
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   load: async () => {
-    const raw = await fetchData()
+    const [raw, profile] = await Promise.all([fetchData(), loadCurrentProfile()])
     const data = raw ? mergeFromStorage(raw) : structuredClone(defaultData)
     document.documentElement.classList.remove("theme-dark", "theme-light")
     document.documentElement.classList.add(`theme-${data.ui.theme ?? "dark"}`)
-    set({ data, loading: false })
+    set({ data, loading: false, username: profile?.username ?? null })
   },
 
   save: async (next: AppState) => {
@@ -648,6 +658,25 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const { data, save } = get()
     if (!data.currentBoss) return
     save({ ...data, currentBoss: null })
+  },
+
+  // ── Social ───────────────────────────────────────────────────────────────────
+
+  setUsername: async (username) => {
+    const result = await setUserProfile(username)
+    if (!result.error) set({ username: username.trim().toLowerCase() })
+    return result
+  },
+
+  addFriend: (userId) => {
+    const { data, save } = get()
+    if ((data.friends || []).includes(userId)) return
+    save({ ...data, friends: [...(data.friends || []), userId] })
+  },
+
+  removeFriend: (userId) => {
+    const { data, save } = get()
+    save({ ...data, friends: (data.friends || []).filter(id => id !== userId) })
   },
 
   equipGear: (slot, gearId) => {

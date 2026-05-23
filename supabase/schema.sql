@@ -32,3 +32,38 @@ $$;
 CREATE TRIGGER trg_user_data_updated_at
   BEFORE UPDATE ON user_data
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Social: username profiles + friend discovery
+-- Run this block after the initial schema above.
+-- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS profiles (
+  user_id    UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  username   TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT username_format CHECK (username ~ '^[a-z0-9_]{3,20}$')
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- Anyone logged in can read profiles (needed for search)
+CREATE POLICY "profiles_public_read" ON profiles
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Users can only write their own profile
+CREATE POLICY "profiles_own_insert" ON profiles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "profiles_own_update" ON profiles
+  FOR UPDATE USING (auth.uid() = user_id);
+
+-- Allow reading another user's training data if they have a public profile
+-- (i.e. they opted into social by setting a username)
+CREATE POLICY "user_data_social_read" ON user_data
+  FOR SELECT USING (
+    auth.uid() = user_id
+    OR EXISTS (
+      SELECT 1 FROM profiles WHERE profiles.user_id = user_data.user_id
+    )
+  );
