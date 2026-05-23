@@ -1,5 +1,5 @@
 import type { ActivityType, AppState, Session, Stats, UserDailyQuest, UserWeeklyQuest } from "./types"
-import { BELTS, DAILY_QUESTS, STRENGTH_LEVELS, STRENGTH_STANDARDS, WEEKLY_QUESTS } from "./constants"
+import { STRENGTH_LEVELS, STRENGTH_STANDARDS } from "./constants"
 
 // ── Date helpers ─────────────────────────────────────────────────────────────
 
@@ -151,83 +151,17 @@ export function bwChange(state: AppState, days: number): number | null {
   return past[past.length - 1].value - past[0].value
 }
 
-// ── XP / level / belt ─────────────────────────────────────────────────────────
+// ── Streak coin multiplier ────────────────────────────────────────────────────
 
-export function xpForLevel(level: number): number {
-  if (level <= 1) return 0
-  let total = 0
-  for (let n = 1; n < level; n++) total += 50 + n * 50
-  return total
-}
-
-export function xpToLevel(xp: number): number {
-  let lvl = 1
-  while (xp >= xpForLevel(lvl + 1)) lvl++
-  return lvl
-}
-
-export function levelProgress(xp: number) {
-  const lvl = xpToLevel(xp)
-  const cur = xpForLevel(lvl)
-  const next = xpForLevel(lvl + 1)
-  return { level: lvl, inLevel: xp - cur, need: next - cur, pct: ((xp - cur) / (next - cur)) * 100 }
-}
-
-export function beltFor(level: number) {
-  let belt = BELTS[0]
-  for (const b of BELTS) if (level >= b.lvl) belt = b
-  const idx = BELTS.indexOf(belt)
-  const nextLvl = (BELTS[idx + 1] || { lvl: Infinity }).lvl
-  const span = Math.max(1, nextLvl - belt.lvl)
-  const into = level - belt.lvl
-  const stripes = Math.min(4, Math.floor((into / span) * 5))
-  return { ...belt, stripes }
-}
-
-// ── Combo multiplier ──────────────────────────────────────────────────────────
-
-export function comboMultiplier(state: AppState): number {
+export function streakMultiplier(state: AppState): number {
   const ds = dayStreak(state)
   if (ds >= 14) return 2.0
-  if (ds >= 7) return 1.5
-  if (ds >= 3) return 1.25
+  if (ds >= 7)  return 1.5
+  if (ds >= 3)  return 1.25
   return 1.0
 }
 
 // ── Quests ────────────────────────────────────────────────────────────────────
-
-function dailyQuestSeed(): number {
-  const d = new Date()
-  return parseInt(`${d.getFullYear()}${d.getMonth() + 1}${d.getDate()}`)
-}
-
-export function getDailyQuest() {
-  return DAILY_QUESTS[dailyQuestSeed() % DAILY_QUESTS.length]
-}
-
-function weeklyQuestSeed(): number {
-  const s = startOfWeek()
-  return parseInt(`${s.getFullYear()}${s.getMonth() + 1}${s.getDate()}`)
-}
-
-export function getWeeklyQuest() {
-  return WEEKLY_QUESTS[weeklyQuestSeed() % WEEKLY_QUESTS.length]
-}
-
-export function weeklyQuestProgress(state: AppState) {
-  const wq = getWeeklyQuest()
-  const ws = thisWeekSessions(state.sessions)
-  let val = 0
-  if (wq.metric === "days")            val = new Set(ws.map(s => dayKey(s.ts))).size
-  else if (wq.metric === "sessions")   val = ws.length
-  else if (wq.metric === "volume")     val = ws.filter(s => s.exercises && s.exercises.length > 0).reduce((a, s) => a + sessionVolume(s), 0)
-  else if (wq.metric === "disciplines") val = new Set(ws.map(s => s.type)).size
-  else if (wq.metric === "exercises")  val = ws.reduce((a, s) => a + (s.exercises ? s.exercises.length : 0), 0)
-  else if (wq.metric === "prs")        val = prsThisWeek(state)
-  return { ...wq, value: val, done: val >= wq.total }
-}
-
-// ── User-defined quests ───────────────────────────────────────────────────────
 
 export function isDailyQuestDone(state: AppState, quest: UserDailyQuest, daySessions: Session[]): boolean {
   const todayK = dayKey(new Date())
@@ -266,13 +200,15 @@ export function addStatClamped(stats: Stats, key: keyof Stats, val: number): Sta
   return { ...stats, [key]: Math.min(100, Math.max(0, (stats[key] || 0) + val)) }
 }
 
-export function addStatsForSession(stats: Stats, sess: Session, actType: ActivityType): Stats {
+// Returns stat gains for a session based on duration. 2 points per hour by default.
+export function addStatsForSession(stats: Stats, actType: ActivityType, durationMinutes: number): Stats {
+  const hours = durationMinutes / 60
   let s = stats
-  for (const [key, gain] of Object.entries(actType.statGains)) {
-    if (gain && gain > 0) s = addStatClamped(s, key as keyof Stats, gain)
+  for (const [key, gainPerHour] of Object.entries(actType.statGains)) {
+    if (gainPerHour && gainPerHour > 0) {
+      s = addStatClamped(s, key as keyof Stats, gainPerHour * hours)
+    }
   }
-  s = addStatClamped(s, "mnd", 0.5)
-  if (sess.exercises) for (const _ of sess.exercises) s = addStatClamped(s, "str", 0.3)
   return s
 }
 
@@ -334,33 +270,28 @@ export function checkWeeklyGoalsMet(state: AppState): boolean {
 // ── Stat widget compute ───────────────────────────────────────────────────────
 
 export function computeStatMetric(key: string, state: AppState): { v: string; sub?: string } {
-  const prog = levelProgress(state.xp)
-  const belt = beltFor(prog.level)
   switch (key) {
-    case "level":                return { v: String(prog.level), sub: belt.name }
-    case "totalXp":              return { v: state.xp + " XP" }
-    case "beltName":             return { v: belt.name }
-    case "totalSessions":        return { v: String(state.sessions.length) }
-    case "sessionsWeek":         return { v: String(thisWeekSessions(state.sessions).length) }
+    case "gold":                  return { v: (state.gold || 0).toLocaleString() + " 🪙" }
+    case "totalSessions":         return { v: String(state.sessions.length) }
+    case "sessionsWeek":          return { v: String(thisWeekSessions(state.sessions).length) }
     case "sessionsMonth": {
       const now = new Date()
       return { v: String(state.sessions.filter(s => { const d = new Date(s.ts); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() }).length) }
     }
-    case "dayStreak":            return { v: String(dayStreak(state)), sub: "days in a row" }
-    case "weekGoalStreak":       return { v: String(state.weeksGoalsHit || 0), sub: "weeks" }
-    case "totalPrs":             return { v: String(prCount(state)) }
-    case "prsWeek":              return { v: String(prsThisWeek(state)) }
-    case "volumeWeek":           return { v: Math.round(weekVolume(state.sessions)).toLocaleString() + " kg" }
-    case "volumeTotal":          return { v: Math.round(state.sessions.reduce((a, s) => a + sessionVolume(s), 0)).toLocaleString() + " kg" }
-    case "achievementsUnlocked": return { v: Object.keys(state.unlocked).length + " / 21" }
-    case "questsCompleted":      return { v: String(state.questsDone || 0) }
-    case "weeklyQuestsCompleted":return { v: String(state.weeklyQuestsDone || 0) }
-    case "comboMultiplier":      return { v: comboMultiplier(state).toFixed(2) + "×" }
+    case "dayStreak":             return { v: String(dayStreak(state)), sub: "days in a row" }
+    case "weekGoalStreak":        return { v: String(state.weeksGoalsHit || 0), sub: "weeks" }
+    case "totalPrs":              return { v: String(prCount(state)) }
+    case "prsWeek":               return { v: String(prsThisWeek(state)) }
+    case "volumeWeek":            return { v: Math.round(weekVolume(state.sessions)).toLocaleString() + " kg" }
+    case "volumeTotal":           return { v: Math.round(state.sessions.reduce((a, s) => a + sessionVolume(s), 0)).toLocaleString() + " kg" }
+    case "achievementsUnlocked":  return { v: Object.keys(state.unlocked).length + " / " + 21 }
+    case "questsCompleted":       return { v: String(state.questsDone || 0) }
+    case "weeklyQuestsCompleted": return { v: String(state.weeklyQuestsDone || 0) }
     case "bodyweightCurrent": {
       const last = state.bodyweight.history.slice(-1)[0]
       return { v: last ? last.value + " kg" : "—" }
     }
-    case "bodyweightGoal":       return { v: state.bodyweight.goal ? state.bodyweight.goal + " kg" : "—" }
+    case "bodyweightGoal":        return { v: state.bodyweight.goal ? state.bodyweight.goal + " kg" : "—" }
     case "bodyweight30dChange": {
       const c = bwChange(state, 30)
       return { v: c == null ? "—" : (c > 0 ? "+" : "") + c.toFixed(1) + " kg" }

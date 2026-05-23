@@ -1,7 +1,7 @@
 "use client"
 
 import { useTrainStore } from "@/store/useTrainStore"
-import { beltFor, comboMultiplier, countByType, dayStreak, levelProgress, thisWeekSessions } from "@/lib/game-logic"
+import { countByType, dayStreak, streakMultiplier, thisWeekSessions } from "@/lib/game-logic"
 
 function Ring({ pct, color, value, label, sub }: {
   pct: number; color: string; value: string; label: string; sub?: string
@@ -36,9 +36,8 @@ function Ring({ pct, color, value, label, sub }: {
 
 export default function Hero() {
   const data = useTrainStore(s => s.data)
-  const prog = levelProgress(data.xp)
-  const belt = beltFor(prog.level)
-  const multi = comboMultiplier(data)
+  const gold = useTrainStore(s => s.data.gold || 0)
+  const multi = streakMultiplier(data)
   const streak = dayStreak(data)
 
   const wk = thisWeekSessions(data.sessions)
@@ -49,7 +48,8 @@ export default function Hero() {
 
   const streakColor = multi >= 2 ? "#4ade80" : multi >= 1.5 ? "#60a5fa" : multi >= 1.25 ? "#fbbf24" : "#6b7280"
   const streakPct = Math.min(100, (streak / 14) * 100)
-  const beltTextColor = (belt.color === "#0a0a0a" || belt.color === "#b91c1c") ? "#fff" : "#000"
+  const maxGoldDisplay = 2000
+  const goldPct = Math.min(100, (gold / maxGoldDisplay) * 100)
 
   return (
     <div
@@ -57,24 +57,26 @@ export default function Hero() {
       style={{ background: "linear-gradient(135deg, #1b1f29, #14161c)", border: "1px solid #262a33" }}
     >
       <div className="flex items-center gap-2.5 mb-4">
-        <div
-          className="w-7 h-7 rounded-[7px] flex items-center justify-center text-xs font-extrabold shrink-0"
-          style={{ background: belt.color, color: beltTextColor }}
-        >
-          {prog.level}
+        <span className="text-[22px] leading-none">🪙</span>
+        <div className="flex-1">
+          <div className="text-[20px] font-extrabold tracking-tight text-gold leading-none">
+            {gold.toLocaleString()}
+          </div>
+          <div className="text-[10px] text-muted mt-0.5">coins · gamble on gacha</div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-gold uppercase tracking-[1px]">{belt.name}</span>
-          {belt.stripes > 0 && <span className="text-gold text-[10px]">{"▮".repeat(belt.stripes)}</span>}
-        </div>
-        <div className="ml-auto text-[11px] text-muted">{prog.inLevel} / {prog.need} XP</div>
+        {multi > 1 && (
+          <div className="text-[11px] font-extrabold px-2.5 py-1 rounded-lg"
+            style={{ background: streakColor + "22", color: streakColor, border: `1px solid ${streakColor}44` }}>
+            ×{multi.toFixed(2)} streak bonus
+          </div>
+        )}
       </div>
 
       <div className="h-[3px] bg-[#0a0b0e] rounded-full overflow-hidden mb-6">
         <div
           className="h-full rounded-full"
           style={{
-            width: `${Math.min(100, prog.pct)}%`,
+            width: `${goldPct}%`,
             background: "linear-gradient(90deg, #fbbf24, #ff8c3d)",
             boxShadow: "0 0 8px rgba(251,191,36,0.5)",
             transition: "width 0.6s ease",
@@ -83,9 +85,9 @@ export default function Hero() {
       </div>
 
       <div className="flex gap-2 justify-around">
-        <Ring pct={prog.pct} color="#fbbf24" value={`${Math.round(prog.pct)}%`} label="Level" sub={`Lvl ${prog.level}`} />
+        <Ring pct={goldPct} color="#fbbf24" value={gold >= 1000 ? (gold/1000).toFixed(1)+"k" : String(gold)} label="Gold" sub="🪙 coins" />
         <Ring pct={weekPct} color="#4cc9f0" value={`${Math.round(weekPct)}%`} label="Week" sub={`${wk.length} sess`} />
-        <Ring pct={streakPct} color={streakColor} value={`${streak}d`} label="Streak" sub={`×${multi.toFixed(2)}`} />
+        <Ring pct={streakPct} color={streakColor} value={`${streak}d`} label="Streak" sub={multi > 1 ? `×${multi.toFixed(2)}` : "no bonus"} />
       </div>
     </div>
   )

@@ -225,6 +225,39 @@ function FriendProfileModal({
           </div>
         </div>
 
+        {/* Bodyweight & bodyfat */}
+        {(() => {
+          const bw = fd.bodyweight
+          const latestBw = bw?.history?.slice(-1)[0]
+          const latestBf = bw?.bodyfat?.history?.slice(-1)[0]
+          if (!latestBw && !latestBf) return null
+          return (
+            <div className="mb-4">
+              <div className="text-[9px] font-extrabold uppercase tracking-[2px] text-muted mb-2">Body Stats</div>
+              <div className="grid grid-cols-2 gap-2">
+                {latestBw && (
+                  <div className="rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="text-[9px] text-muted uppercase tracking-wider mb-1">Bodyweight</div>
+                    <div className="text-lg font-extrabold">{latestBw.value} <span className="text-[11px] text-muted font-normal">kg</span></div>
+                    {bw?.goal != null && (
+                      <div className="text-[10px] text-muted mt-0.5">Goal: {bw.goal} kg</div>
+                    )}
+                  </div>
+                )}
+                {latestBf && (
+                  <div className="rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="text-[9px] text-muted uppercase tracking-wider mb-1">Body Fat</div>
+                    <div className="text-lg font-extrabold">{latestBf.value} <span className="text-[11px] text-muted font-normal">%</span></div>
+                    {bw?.bodyfat?.goal != null && (
+                      <div className="text-[10px] text-muted mt-0.5">Goal: {bw.bodyfat.goal}%</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Top PRs */}
         {topPRs.length > 0 && (
           <div className="mb-4">

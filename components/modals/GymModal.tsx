@@ -19,6 +19,7 @@ export default function GymModal({ open, activityId, sessId, onClose }: Props) {
   const deleteSession = useTrainStore(s => s.deleteSession)
 
   const [note, setNote] = useState("")
+  const [duration, setDuration] = useState(60)
   const [rows, setRows] = useState<Partial<Exercise>[]>([{ name: "", weight: undefined, reps: undefined, sets: undefined }])
 
   useEffect(() => {
@@ -27,11 +28,13 @@ export default function GymModal({ open, activityId, sessId, onClose }: Props) {
       const s = data.sessions.find(x => x.id === sessId)
       if (s) {
         setNote(s.note || "")
+        setDuration(s.durationMinutes ?? 60)
         setRows(s.exercises?.length ? s.exercises.map(e => ({ ...e })) : [{ name: "", weight: undefined, reps: undefined, sets: undefined }])
         return
       }
     }
     setNote("")
+    setDuration(60)
     setRows([{ name: "", weight: undefined, reps: undefined, sets: undefined }])
   }, [open, sessId])
 
@@ -51,7 +54,7 @@ export default function GymModal({ open, activityId, sessId, onClose }: Props) {
     if (sessId != null) {
       updateSession(sessId, exercises, note.trim())
     } else {
-      logSession(activityId || "gym", exercises, note.trim())
+      logSession(activityId || "gym", exercises, note.trim(), duration)
       burstConfetti(undefined, undefined, false)
     }
     onClose()
@@ -74,8 +77,21 @@ export default function GymModal({ open, activityId, sessId, onClose }: Props) {
         <h2 className="text-lg font-bold mb-1">{sessId != null ? "Edit Session" : "Log Session"}</h2>
         <p className="text-muted text-sm mb-4">Add exercises with weight × reps × sets. PRs auto-recorded.</p>
 
-        <label className="field-label">Notes (optional)</label>
-        <input type="text" value={note} onChange={e => setNote(e.target.value)} className="modal-input" placeholder="e.g. push day, felt strong" />
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <label className="field-label">Duration (minutes)</label>
+            <input
+              type="number" min="5" max="360" step="5"
+              value={duration}
+              onChange={e => setDuration(parseInt(e.target.value) || 60)}
+              className="modal-input"
+            />
+          </div>
+          <div>
+            <label className="field-label">Notes (optional)</label>
+            <input type="text" value={note} onChange={e => setNote(e.target.value)} className="modal-input" placeholder="e.g. push day" />
+          </div>
+        </div>
 
         <div className="grid grid-cols-[2fr_60px_50px_50px_28px] gap-1.5 text-[10px] text-muted uppercase tracking-wider mt-3 mb-1.5">
           <div>Exercise</div><div>Weight</div><div>Reps</div><div>Sets</div><div />

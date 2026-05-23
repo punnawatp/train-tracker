@@ -20,7 +20,7 @@ const PRESET_COLORS = [
 const emptyForm = () => ({
   name: "",
   color: PRESET_COLORS[0],
-  xp: 10,
+  coinReward: 50,
   hasExercises: false,
   statGains: {} as Partial<Record<keyof Stats, number>>,
 })
@@ -38,7 +38,7 @@ export default function ActivityModal({ open, activityId, onClose }: Props) {
     if (activityId) {
       const act = data.activityTypes.find(a => a.id === activityId)
       if (act) {
-        setForm({ name: act.name, color: act.color, xp: act.xp, hasExercises: act.hasExercises ?? false, statGains: { ...act.statGains } })
+        setForm({ name: act.name, color: act.color, coinReward: act.coinReward, hasExercises: act.hasExercises ?? false, statGains: { ...act.statGains } })
         return
       }
     }
@@ -63,13 +63,15 @@ export default function ActivityModal({ open, activityId, onClose }: Props) {
     onClose()
   }
 
+  const totalGainsPerHour = Object.values(form.statGains).reduce((a, b) => a + (b || 0), 0)
+
   if (!open) return null
 
   return (
     <div className="modal-bg show" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="modal">
         <h2 className="text-lg font-bold mb-1">{activityId ? "Edit Activity" : "New Activity"}</h2>
-        <p className="text-muted text-sm mb-4">Configure how this activity tracks and rewards you.</p>
+        <p className="text-muted text-sm mb-4">Configure how this activity rewards you.</p>
 
         <label className="field-label">Name</label>
         <input
@@ -99,11 +101,11 @@ export default function ActivityModal({ open, activityId, onClose }: Props) {
 
         <div className="grid grid-cols-2 gap-3 mb-4">
           <div>
-            <label className="field-label">Base XP</label>
+            <label className="field-label">Coin reward per session</label>
             <input
               type="number" min="0" max="999"
-              value={form.xp}
-              onChange={e => setForm(f => ({ ...f, xp: parseInt(e.target.value) || 0 }))}
+              value={form.coinReward}
+              onChange={e => setForm(f => ({ ...f, coinReward: parseInt(e.target.value) || 0 }))}
               className="modal-input"
             />
           </div>
@@ -120,7 +122,12 @@ export default function ActivityModal({ open, activityId, onClose }: Props) {
           </div>
         </div>
 
-        <label className="field-label">Stat gains per session</label>
+        <label className="field-label">
+          Attribute gains per hour
+          <span className="ml-2 text-[10px] font-normal text-muted">
+            total: {totalGainsPerHour.toFixed(1)} pts/hr · tip: use 2 total for balance
+          </span>
+        </label>
         <div className="flex flex-col gap-2 mb-5">
           {STAT_DEFS.map(s => (
             <div key={s.key} className="flex items-center gap-3">
@@ -139,7 +146,7 @@ export default function ActivityModal({ open, activityId, onClose }: Props) {
                 }}
                 className="w-20 modal-input"
               />
-              <span className="text-xs text-muted">per session</span>
+              <span className="text-xs text-muted">per hour</span>
             </div>
           ))}
         </div>

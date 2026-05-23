@@ -13,19 +13,10 @@ interface Props {
   onClose: () => void
 }
 
-const XP_FIELDS = [
-  { key: "exerciseBonus",    label: "Bonus XP per exercise logged" },
-  { key: "exerciseBonusMax", label: "Max exercise bonus XP per session" },
-  { key: "prBonus",          label: "PR bonus XP" },
-  { key: "weeklyBonus",      label: "Weekly all-goals bonus XP" },
-  { key: "bodyweightLog",    label: "Bodyweight log XP" },
-] as const
-
 export default function SettingsModal({ open, onClose }: Props) {
   const data = useTrainStore(s => s.data)
   const toggleSection = useTrainStore(s => s.toggleSection)
   const setTheme = useTrainStore(s => s.setTheme)
-  const updateXpRules = useTrainStore(s => s.updateXpRules)
   const addCategory = useTrainStore(s => s.addCategory)
   const renameCategory = useTrainStore(s => s.renameCategory)
   const deleteCategory = useTrainStore(s => s.deleteCategory)
@@ -68,7 +59,7 @@ export default function SettingsModal({ open, onClose }: Props) {
 
   function handleReset() {
     if (!confirm("This wipes EVERYTHING. Are you absolutely sure?")) return
-    if (!confirm("Last chance. All your training history, XP, PRs will be gone.")) return
+    if (!confirm("Last chance. All your training history, coins, and PRs will be gone.")) return
     resetAllData()
     onClose()
   }
@@ -116,24 +107,6 @@ export default function SettingsModal({ open, onClose }: Props) {
                 />
                 {SECTION_LABELS[k]}
               </label>
-            ))}
-          </div>
-        </div>
-
-        {/* XP rules */}
-        <div className="set-grp">
-          <h3>XP rules</h3>
-          <div className="grid gap-2 items-center" style={{ gridTemplateColumns: "1fr auto" }}>
-            {XP_FIELDS.map(f => (
-              <React.Fragment key={f.key}>
-                <label className="text-sm">{f.label}</label>
-                <input
-                  type="number" min="0"
-                  value={data.xpRules[f.key]}
-                  onChange={e => updateXpRules({ [f.key]: parseFloat(e.target.value) || 0 })}
-                  className="w-20 bg-panel2 border border-line rounded px-2 py-1 text-sm text-right text-tx focus:outline-none focus:border-accent"
-                />
-              </React.Fragment>
             ))}
           </div>
         </div>

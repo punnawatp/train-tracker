@@ -2,7 +2,8 @@ export interface Session {
   id: number
   type: string
   ts: number
-  xpAwarded: number
+  coinsEarned: number
+  durationMinutes: number
   exercises: Exercise[]
   note: string
 }
@@ -60,14 +61,6 @@ export interface Widget {
   }
 }
 
-export interface XpRules {
-  exerciseBonus: number
-  exerciseBonusMax: number
-  prBonus: number
-  weeklyBonus: number
-  bodyweightLog: number
-}
-
 export interface Stats {
   str: number
   flex: number
@@ -80,7 +73,7 @@ export interface ActivityType {
   id: string
   name: string
   color: string
-  xp: number
+  coinReward: number
   statGains: Partial<Record<keyof Stats, number>>
   hasExercises?: boolean
 }
@@ -89,7 +82,6 @@ export interface AppState {
   targets: Record<string, number>
   activityTypes: ActivityType[]
   sessions: Session[]
-  xp: number
   weeksGoalsHit: number
   weekKeysCounted: string[]
   unlocked: Record<string, number>
@@ -101,7 +93,6 @@ export interface AppState {
   categories: Category[]
   lifts: Lift[]
   stats: Stats
-  xpRules: XpRules
   widgets: Widget[]
   ui: { sectionsVisible: Record<string, boolean>; theme: "dark" | "light" }
   dailyQuests: UserDailyQuest[]
@@ -132,7 +123,7 @@ export type WeeklyMetric = "days" | "sessions" | "activity_sessions" | "prs" | "
 export interface UserDailyQuest {
   id: string
   desc: string
-  xp: number
+  coinReward: number
   checkType: QuestCheckType
   activityId?: string
 }
@@ -140,7 +131,7 @@ export interface UserDailyQuest {
 export interface UserWeeklyQuest {
   id: string
   desc: string
-  xp: number
+  coinReward: number
   metric: WeeklyMetric
   target: number
   activityId?: string
@@ -151,7 +142,6 @@ export type Toast = {
   title: string
   body: string
   sub?: string
-  kind?: "xp"
 }
 
 export interface ShopItem {
@@ -160,6 +150,6 @@ export interface ShopItem {
   icon: string
   desc: string
   cost: number
-  effect: "dmg_boost" | "gold_boost" | "instant_xp"
+  effect: "dmg_boost" | "gold_boost" | "instant_dmg"
   value: number
 }

@@ -11,7 +11,7 @@ export default function Stats() {
       <h3 className="section-h">Stats</h3>
       <div className="flex gap-3.5 flex-wrap">
         {[
-          { label: "Weekly goal streak", value: (data.weeksGoalsHit || 0) + " 🔥" },
+          { label: "Total coins", value: (data.gold || 0).toLocaleString() + " 🪙" },
           { label: "Total sessions", value: String(data.sessions.length) },
           { label: "PRs hit", value: String(prCount(data)) },
           { label: "Volume this week", value: Math.round(weekVolume(data.sessions)).toLocaleString() + " kg" },

@@ -16,11 +16,11 @@ export default function Quests() {
   const [showAddDaily, setShowAddDaily] = useState(false)
   const [showAddWeekly, setShowAddWeekly] = useState(false)
   const [dDesc, setDDesc] = useState("")
-  const [dXp, setDXp] = useState("50")
+  const [dCoins, setDCoins] = useState("50")
   const [dCheckType, setDCheckType] = useState<QuestCheckType>("any_session")
   const [dActivityId, setDActivityId] = useState("")
   const [wDesc, setWDesc] = useState("")
-  const [wXp, setWXp] = useState("100")
+  const [wCoins, setWCoins] = useState("100")
   const [wMetric, setWMetric] = useState<WeeklyMetric>("sessions")
   const [wTarget, setWTarget] = useState("3")
   const [wActivityId, setWActivityId] = useState("")
@@ -43,11 +43,11 @@ export default function Quests() {
     if (!dDesc.trim()) return
     addDailyQuest({
       desc: dDesc.trim(),
-      xp: parseInt(dXp) || 50,
+      coinReward: parseInt(dCoins) || 50,
       checkType: dCheckType,
       ...(dCheckType === "activity_session" && dActivityId ? { activityId: dActivityId } : {}),
     })
-    setDDesc(""); setDXp("50"); setDCheckType("any_session"); setDActivityId("")
+    setDDesc(""); setDCoins("50"); setDCheckType("any_session"); setDActivityId("")
     setShowAddDaily(false)
   }
 
@@ -55,12 +55,12 @@ export default function Quests() {
     if (!wDesc.trim()) return
     addWeeklyQuest({
       desc: wDesc.trim(),
-      xp: parseInt(wXp) || 100,
+      coinReward: parseInt(wCoins) || 100,
       metric: wMetric,
       target: parseInt(wTarget) || 3,
       ...(wMetric === "activity_sessions" && wActivityId ? { activityId: wActivityId } : {}),
     })
-    setWDesc(""); setWXp("100"); setWMetric("sessions"); setWTarget("3"); setWActivityId("")
+    setWDesc(""); setWCoins("100"); setWMetric("sessions"); setWTarget("3"); setWActivityId("")
     setShowAddWeekly(false)
   }
 
@@ -94,8 +94,8 @@ export default function Quests() {
                 </select>
               </div>
               <div>
-                <div className="text-[10px] text-muted uppercase mb-1">XP</div>
-                <input type="number" value={dXp} onChange={e => setDXp(e.target.value)} className="modal-input w-20" />
+                <div className="text-[10px] text-muted uppercase mb-1">Coins</div>
+                <input type="number" value={dCoins} onChange={e => setDCoins(e.target.value)} className="modal-input w-20" />
               </div>
             </div>
             {dCheckType === "activity_session" && (
@@ -133,7 +133,7 @@ export default function Quests() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-xs font-bold px-2 py-1 rounded-lg whitespace-nowrap"
                       style={{ background: done ? "rgba(74,222,128,0.15)" : "rgba(251,191,36,0.15)", color: done ? "#4ade80" : "#fbbf24" }}>
-                      {done ? "✓ " : "+"}{quest.xp} DMG
+                      {done ? "✓ " : "+"}{quest.coinReward}🪙
                     </span>
                     {!done && quest.checkType === "manual" && (
                       <button
@@ -192,8 +192,8 @@ export default function Quests() {
                 <input type="number" min="1" value={wTarget} onChange={e => setWTarget(e.target.value)} className="modal-input w-20" />
               </div>
               <div>
-                <div className="text-[10px] text-muted uppercase mb-1">XP</div>
-                <input type="number" value={wXp} onChange={e => setWXp(e.target.value)} className="modal-input w-20" />
+                <div className="text-[10px] text-muted uppercase mb-1">Coins</div>
+                <input type="number" value={wCoins} onChange={e => setWCoins(e.target.value)} className="modal-input w-20" />
               </div>
             </div>
             {wMetric === "activity_sessions" && (
@@ -242,7 +242,7 @@ export default function Quests() {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-xs font-bold px-2 py-1 rounded-lg whitespace-nowrap"
                       style={{ background: done ? "rgba(74,222,128,0.15)" : "rgba(179,136,255,0.15)", color: done ? "#4ade80" : "#b388ff" }}>
-                      {done ? "✓ " : "+"}{quest.xp} DMG
+                      {done ? "✓ " : "+"}{quest.coinReward}🪙
                     </span>
                     <button
                       onClick={() => removeWeeklyQuest(quest.id)}

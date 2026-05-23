@@ -48,7 +48,7 @@ export default function LogRow({ onOpenExerciseModal, onOpenActivityModal }: Pro
                   + {act.name}
                 </div>
                 <div className="text-[11px] mt-0.5" style={{ color: act.color + "99" }}>
-                  +{act.xp} DMG per session
+                  +{act.coinReward}🪙 per session
                 </div>
               </div>
 

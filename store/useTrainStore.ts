@@ -4,35 +4,34 @@ import { create } from "zustand"
 import { createClient } from "@/lib/supabase/client"
 import type { ActivityType, AppState, Exercise, Session, Toast, UserDailyQuest, UserWeeklyQuest, Widget } from "@/lib/types"
 import {
-  DEFAULT_SECTIONS, DEFAULT_XP_RULES, DEFAULT_CATEGORIES, DEFAULT_LIFTS, DEFAULT_ACTIVITY_TYPES,
+  DEFAULT_SECTIONS, DEFAULT_CATEGORIES, DEFAULT_LIFTS, DEFAULT_ACTIVITY_TYPES,
   ACHIEVEMENTS, SHOP_ITEMS, BOSSES, GACHA_GEAR, rollGacha, rollShopGacha,
 } from "@/lib/constants"
 import type { GearItem } from "@/lib/types"
 import { loadCurrentProfile, setUserProfile } from "@/lib/social"
 import {
   addStatsForSession, addStatClamped, checkWeeklyGoalsMet,
-  dayKey, findMatchingLift,
+  dayKey, findMatchingLift, streakMultiplier,
   isDailyQuestDone, weeklyQuestProgressValue,
   sessionVolume, todaySessions, weekKey,
 } from "@/lib/game-logic"
 
 const DEFAULT_DAILY_QUESTS: UserDailyQuest[] = [
-  { id: "dq_default_1", desc: "Log any workout today", xp: 50, checkType: "any_session" },
-  { id: "dq_default_2", desc: "Log your bodyweight", xp: 20, checkType: "manual" },
-  { id: "dq_default_3", desc: "Hit the gym today", xp: 75, checkType: "activity_session", activityId: "gym" },
+  { id: "dq_default_1", desc: "Log any workout today", coinReward: 50, checkType: "any_session" },
+  { id: "dq_default_2", desc: "Log your bodyweight", coinReward: 20, checkType: "manual" },
+  { id: "dq_default_3", desc: "Hit the gym today", coinReward: 75, checkType: "activity_session", activityId: "gym" },
 ]
 
 const DEFAULT_WEEKLY_QUESTS: UserWeeklyQuest[] = [
-  { id: "wq_default_1", desc: "Work out 3 times this week", xp: 150, metric: "sessions", target: 3 },
-  { id: "wq_default_2", desc: "Train on 4 different days", xp: 200, metric: "days", target: 4 },
-  { id: "wq_default_3", desc: "Complete 5 daily quests", xp: 100, metric: "daily_completions", target: 5 },
+  { id: "wq_default_1", desc: "Work out 3 times this week", coinReward: 150, metric: "sessions", target: 3 },
+  { id: "wq_default_2", desc: "Train on 4 different days", coinReward: 200, metric: "days", target: 4 },
+  { id: "wq_default_3", desc: "Complete 5 daily quests", coinReward: 100, metric: "daily_completions", target: 5 },
 ]
 
 const defaultData: AppState = {
   targets: { gym: 0 },
   activityTypes: structuredClone(DEFAULT_ACTIVITY_TYPES),
   sessions: [],
-  xp: 0,
   weeksGoalsHit: 0,
   weekKeysCounted: [],
   unlocked: {},
@@ -44,7 +43,6 @@ const defaultData: AppState = {
   categories: structuredClone(DEFAULT_CATEGORIES),
   lifts: structuredClone(DEFAULT_LIFTS),
   stats: { str: 0, flex: 0, mob: 0, mnd: 0, end: 0 },
-  xpRules: { ...DEFAULT_XP_RULES },
   widgets: [],
   ui: { sectionsVisible: { ...DEFAULT_SECTIONS }, theme: "dark" as const },
   dailyQuests: structuredClone(DEFAULT_DAILY_QUESTS),
@@ -66,7 +64,6 @@ interface StoreState {
   loading: boolean
   toasts: Toast[]
   prFlash: { name: string; val: string } | null
-  levelUpInfo: { level: number; beltName: string; stripes: number } | null
   username: string | null
 
   // Lifecycle
@@ -74,7 +71,7 @@ interface StoreState {
   save: (next: AppState) => Promise<void>
 
   // Session actions
-  logSession: (type: string, exercises?: Exercise[], note?: string) => void
+  logSession: (type: string, exercises?: Exercise[], note?: string, durationMinutes?: number) => void
   updateSession: (sessId: number, exercises: Exercise[], note: string) => void
   deleteSession: (id: number) => void
   resetWeek: () => void
@@ -110,7 +107,7 @@ interface StoreState {
   completeQuestManually: (questId: string) => void
   addWeeklyQuest: (quest: Omit<UserWeeklyQuest, "id">) => void
   removeWeeklyQuest: (id: string) => void
-  updateWeeklyQuest: (id: string, patch: Partial<Omit<UserWeeklyQuest, "id">>) => void
+  updateWeeklyQuest: (id: string, patch: Partial<UserWeeklyQuest>) => void
 
   // Widgets
   addWidget: (w: Omit<Widget, "id">) => void
@@ -119,7 +116,6 @@ interface StoreState {
   moveWidget: (id: string, dir: number) => void
 
   // Settings
-  updateXpRules: (rules: Partial<AppState["xpRules"]>) => void
   toggleSection: (key: string, val: boolean) => void
   setTheme: (theme: "dark" | "light") => void
 
@@ -150,7 +146,6 @@ interface StoreState {
   removeToast: (id: string) => void
   showPRFlash: (name: string, val: string) => void
   clearPRFlash: () => void
-  closeLevelUp: () => void
 }
 
 function getSupabase() { return createClient() }
@@ -198,9 +193,13 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
     history: merged.bodyweight?.history || [],
     bodyfat: merged.bodyweight?.bodyfat || { goal: null, history: [] },
   }
-  merged.activityTypes = merged.activityTypes?.length ? merged.activityTypes : structuredClone(DEFAULT_ACTIVITY_TYPES)
+  merged.activityTypes = (merged.activityTypes?.length ? merged.activityTypes : structuredClone(DEFAULT_ACTIVITY_TYPES))
+    .map((a: ActivityType & { xp?: number }) => ({
+      ...a,
+      // Migrate old xp field → coinReward
+      coinReward: a.coinReward ?? a.xp ?? 50,
+    }))
   merged.categories = merged.categories?.length ? merged.categories : structuredClone(DEFAULT_CATEGORIES)
-  merged.xpRules = { ...DEFAULT_XP_RULES, ...(merged.xpRules || {}) }
   merged.widgets = merged.widgets || []
   merged.ui = merged.ui || {}
   merged.ui.sectionsVisible = { ...DEFAULT_SECTIONS, ...(merged.ui?.sectionsVisible || {}) }
@@ -210,12 +209,20 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
     cat: merged.categories.find(c => c.id === l.cat) ? l.cat : "other",
     targetReps: l.targetReps || 8,
     history: (l.history || []).map((h) => {
-      const raw = h as unknown as Record<string, unknown>
-      return { ts: Number(raw["ts"] ?? 0), weight: Number(raw["weight"] ?? 0), reps: Number(raw["reps"] ?? (l.targetReps || 8)) }
+      const r = h as unknown as Record<string, unknown>
+      return { ts: Number(r["ts"] ?? 0), weight: Number(r["weight"] ?? 0), reps: Number(r["reps"] ?? (l.targetReps || 8)) }
     }),
   }))
-  merged.dailyQuests = merged.dailyQuests?.length ? merged.dailyQuests : structuredClone(DEFAULT_DAILY_QUESTS)
-  merged.weeklyQuests = merged.weeklyQuests?.length ? merged.weeklyQuests : structuredClone(DEFAULT_WEEKLY_QUESTS)
+  // Migrate sessions: old xpAwarded → coinsEarned, add durationMinutes
+  merged.sessions = (merged.sessions || []).map((s: Session & { xpAwarded?: number }) => ({
+    ...s,
+    coinsEarned: s.coinsEarned ?? s.xpAwarded ?? 0,
+    durationMinutes: s.durationMinutes ?? 60,
+  }))
+  merged.dailyQuests = (merged.dailyQuests?.length ? merged.dailyQuests : structuredClone(DEFAULT_DAILY_QUESTS))
+    .map((q: UserDailyQuest & { xp?: number }) => ({ ...q, coinReward: q.coinReward ?? q.xp ?? 50 }))
+  merged.weeklyQuests = (merged.weeklyQuests?.length ? merged.weeklyQuests : structuredClone(DEFAULT_WEEKLY_QUESTS))
+    .map((q: UserWeeklyQuest & { xp?: number }) => ({ ...q, coinReward: q.coinReward ?? q.xp ?? 100 }))
   merged.dailyCompletions = merged.dailyCompletions || {}
   merged.weeklyCompletions = merged.weeklyCompletions || {}
   merged.gold = merged.gold ?? 0
@@ -223,7 +230,6 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
   merged.activeEffects = merged.activeEffects || {}
   merged.currentBoss = merged.currentBoss ?? null
   merged.bossKills = merged.bossKills || {}
-  // Migrate old equippedWeapon to new equipped object
   const rawRec = raw as Record<string, unknown>
   merged.equipped = merged.equipped || { weapon: null, helmet: null, armor: null, ring: null }
   if (!merged.equipped.weapon && rawRec["equippedWeapon"]) {
@@ -231,6 +237,8 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
   }
   merged.gear = merged.gear || {}
   merged.friends = merged.friends || []
+  merged.weeksGoalsHit = merged.weeksGoalsHit ?? 0
+  merged.weekKeysCounted = merged.weekKeysCounted || []
   return merged
 }
 
@@ -239,7 +247,6 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   loading: true,
   toasts: [],
   prFlash: null,
-  levelUpInfo: null,
   gachaResult: null,
   gachaPreClaimed: false,
   username: null,
@@ -261,23 +268,27 @@ export const useTrainStore = create<StoreState>((set, get) => ({
 
   // ── Session actions ─────────────────────────────────────────────────────────
 
-  logSession: (type, exercises = [], note = "") => {
+  logSession: (type, exercises = [], note = "", durationMinutes = 60) => {
     const { data, save, addToast, showPRFlash } = get()
     const actType = data.activityTypes.find(a => a.id === type)
     if (!actType) return
 
     const session: Session = {
       id: Date.now() + Math.random(),
-      type, ts: Date.now(), xpAwarded: 0, exercises, note,
+      type, ts: Date.now(),
+      coinsEarned: 0,
+      durationMinutes,
+      exercises, note,
     }
 
+    // Apply stat gains: statGains × (durationMinutes / 60)
     let next: AppState = {
       ...data,
       sessions: [session, ...data.sessions],
-      stats: addStatsForSession(data.stats, session, actType),
+      stats: addStatsForSession(data.stats, actType, durationMinutes),
     }
 
-    // PR detection — update lifts, give stat bonus
+    // PR detection — update lifts, give STR bonus
     const prsHit: { name: string; val: string }[] = []
     const lifts = next.lifts.map(lift => {
       const ex = exercises.find(e => findMatchingLift([lift], e.name))
@@ -294,7 +305,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     })
     next = { ...next, lifts }
 
-    // Weekly goals — give mindfulness stat
+    // Weekly goals check
     if (checkWeeklyGoalsMet(next) && !next.weekKeysCounted.includes(weekKey())) {
       next = {
         ...next,
@@ -305,61 +316,89 @@ export const useTrainStore = create<StoreState>((set, get) => ({
       addToast({ title: "WEEK COMPLETE", body: "All goals hit!", sub: "Mindfulness +3" })
     }
 
-    // Auto-complete daily quests
+    // Auto-complete daily quests → earn coins
     const todayK = dayKey(new Date())
     const todaySess = todaySessions(next.sessions)
     const doneTodaySet = new Set(next.dailyCompletions?.[todayK] || [])
-    let questGoldEarned = 0
+    let questCoinsEarned = 0
     for (const quest of (next.dailyQuests || [])) {
       if (doneTodaySet.has(quest.id) || quest.checkType === "manual") continue
       if (isDailyQuestDone(next, quest, todaySess)) {
         doneTodaySet.add(quest.id)
-        const qGold = quest.xp * 5
-        questGoldEarned += qGold
+        questCoinsEarned += quest.coinReward
         next = {
           ...next,
           questsDone: (next.questsDone || 0) + 1,
           dailyCompletions: { ...(next.dailyCompletions || {}), [todayK]: [...doneTodaySet] },
         }
-        addToast({ title: "DAILY QUEST", body: quest.desc, sub: `+${qGold}🪙` })
+        addToast({ title: "DAILY QUEST", body: quest.desc, sub: `+${quest.coinReward}🪙` })
       }
     }
 
-    // Auto-complete weekly quests
+    // Auto-complete weekly quests → earn coins
     const wkKey = weekKey()
     const doneThisWeekSet = new Set(next.weeklyCompletions?.[wkKey] || [])
     for (const quest of (next.weeklyQuests || [])) {
       if (doneThisWeekSet.has(quest.id)) continue
       if (weeklyQuestProgressValue(next, quest) >= quest.target) {
         doneThisWeekSet.add(quest.id)
-        const qGold = quest.xp * 5
-        questGoldEarned += qGold
+        questCoinsEarned += quest.coinReward
         next = {
           ...next,
           weeklyQuestsDone: (next.weeklyQuestsDone || 0) + 1,
           weeklyCompletions: { ...(next.weeklyCompletions || {}), [wkKey]: [...doneThisWeekSet] },
         }
-        addToast({ title: "WEEKLY QUEST", body: quest.desc, sub: `+${qGold}🪙` })
+        addToast({ title: "WEEKLY QUEST", body: quest.desc, sub: `+${quest.coinReward}🪙` })
       }
     }
 
-    // Gold reward: base from activity + exercise bonus + quest rewards
+    // Coin reward: base from activity × streak multiplier × gold boost
+    const multi = streakMultiplier(next)
     const goldBoost = data.activeEffects?.gold_boost ?? 1
-    const baseGold = actType.xp * 5
-    const exBonus = Math.min(exercises.length * 3, 30)
-    const prBonus = prsHit.length * 15
-    const sessionGold = Math.round((baseGold + exBonus + prBonus) * goldBoost)
-    const goldEarned = sessionGold + questGoldEarned
-    next = { ...next, gold: (next.gold || 0) + goldEarned }
+    const sessionCoins = Math.round(actType.coinReward * multi * goldBoost)
+    const totalCoins = sessionCoins + questCoinsEarned
+    next = { ...next, gold: (next.gold || 0) + totalCoins }
+
+    // Update session record with coins earned
+    next = {
+      ...next,
+      sessions: next.sessions.map(s => s.id === session.id ? { ...s, coinsEarned: sessionCoins } : s),
+    }
+
+    // Clear gold boost effect
+    next = { ...next, activeEffects: { ...next.activeEffects, gold_boost: 1 } }
+
+    // Boss damage: session coins × dmg boost
+    const dmgBoost = data.activeEffects?.dmg_boost ?? 1
+    if (next.currentBoss) {
+      const bossDmg = Math.round(actType.coinReward * dmgBoost)
+      const newHp = Math.max(0, next.currentBoss.hp - bossDmg)
+      if (newHp <= 0) {
+        const bossIdx = next.currentBoss.idx
+        const bossConfig = BOSSES[Math.min(bossIdx, BOSSES.length - 1)]
+        const gearRolled = rollGacha(bossIdx)
+        next = {
+          ...next,
+          currentBoss: null,
+          bossKills: { ...(next.bossKills || {}), [bossIdx]: ((next.bossKills || {})[bossIdx] || 0) + 1 },
+          activeEffects: { ...next.activeEffects, dmg_boost: 1 },
+        }
+        set({ gachaResult: [gearRolled] })
+        addToast({ title: "BOSS DEFEATED!", body: `${bossConfig.name} is down!`, sub: "Claim your loot!" })
+      } else {
+        next = { ...next, currentBoss: { ...next.currentBoss, hp: newHp }, activeEffects: { ...next.activeEffects, dmg_boost: 1 } }
+        addToast({ title: `⚔ BOSS HIT! -${bossDmg} HP`, body: actType.name, sub: `${newHp.toLocaleString()} HP remaining` })
+      }
+    }
 
     // Toast
-    const subBits: string[] = [`+${sessionGold}🪙`]
+    const subBits: string[] = [`+${sessionCoins}🪙`]
+    if (multi > 1) subBits.push(`×${multi.toFixed(2)} streak`)
     if (exercises.length > 0) subBits.push(`${exercises.length} ex`)
     if (prsHit.length > 0) subBits.push(`🏆 ${prsHit.length} PR!`)
-    addToast({ title: "SESSION LOGGED", body: actType.name, sub: subBits.join(" · ") })
-
-    // Clear gold boost
-    next = { ...next, activeEffects: { ...next.activeEffects, gold_boost: 1 } }
+    if (!next.currentBoss) {
+      addToast({ title: "SESSION LOGGED", body: actType.name, sub: subBits.join(" · ") })
+    }
 
     if (prsHit.length > 0) showPRFlash(prsHit[0].name, prsHit[0].val)
 
@@ -384,7 +423,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
       if (dup) return lift
       const history = [...lift.history, { ts: Date.now(), weight: ex.weight, reps: ex.reps }]
       prsHit.push({ name: lift.name, val: `${ex.weight} kg @ ${lift.targetReps}+ reps` })
-      next = { ...next, xp: next.xp + next.xpRules.prBonus, stats: addStatClamped(next.stats, "str", 1.0) }
+      next = { ...next, stats: addStatClamped(next.stats, "str", 1.0) }
       return { ...lift, history, current: ex.weight }
     })
     next = { ...next, lifts }
@@ -396,9 +435,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
 
   deleteSession: (id) => {
     const { data, save } = get()
-    const s = data.sessions.find(x => x.id === id)
-    if (!s) return
-    save({ ...data, xp: Math.max(0, data.xp - (s.xpAwarded || 0)), sessions: data.sessions.filter(x => x.id !== id) })
+    save({ ...data, sessions: data.sessions.filter(x => x.id !== id) })
   },
 
   resetWeek: () => {
@@ -445,11 +482,10 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const { data, save, addToast } = get()
     const next: AppState = {
       ...data,
-      xp: data.xp + data.xpRules.bodyweightLog,
       stats: addStatClamped(data.stats, "mnd", 0.3),
       bodyweight: { ...data.bodyweight, history: [...data.bodyweight.history, { ts: Date.now(), value }] },
     }
-    addToast({ title: `BOSS HIT! -${data.xpRules.bodyweightLog} HP`, body: `Bodyweight: ${value} kg`, kind: "xp" })
+    addToast({ title: "Bodyweight logged", body: `${value} kg` })
     save(next)
   },
 
@@ -479,7 +515,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
       const updated = { ...lift, ...patch }
       if (manualCurrentChange && patch.current != null && patch.current > lift.current) {
         const history = [...(lift.history || []), { ts: Date.now(), weight: patch.current, reps: updated.targetReps || lift.targetReps }]
-        next = { ...next, xp: next.xp + next.xpRules.prBonus, stats: addStatClamped(next.stats, "str", 1.0) }
+        next = { ...next, stats: addStatClamped(next.stats, "str", 1.0) }
         showPRFlash(lift.name, `${patch.current} kg @ ${updated.targetReps || lift.targetReps} reps`)
         return { ...updated, history }
       }
@@ -545,32 +581,31 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const doneTodaySet = new Set(data.dailyCompletions?.[todayK] || [])
     if (doneTodaySet.has(questId)) return
     doneTodaySet.add(questId)
-    const next: AppState = {
+    let next: AppState = {
       ...data,
-      xp: data.xp + quest.xp,
+      gold: (data.gold || 0) + quest.coinReward,
       questsDone: (data.questsDone || 0) + 1,
       dailyCompletions: { ...(data.dailyCompletions || {}), [todayK]: [...doneTodaySet] },
     }
-    addToast({ title: "DAILY QUEST", body: quest.desc, sub: `+${quest.xp} DMG`, kind: "xp" })
+    addToast({ title: "DAILY QUEST DONE", body: quest.desc, sub: `+${quest.coinReward}🪙` })
 
-    // Also check weekly quests after manual daily completion
+    // Check weekly quests after daily completion
     const wkKey = weekKey()
-    let wkNext = next
     const doneThisWeekSet = new Set(next.weeklyCompletions?.[wkKey] || [])
     for (const wq of (next.weeklyQuests || [])) {
       if (doneThisWeekSet.has(wq.id)) continue
-      if (weeklyQuestProgressValue(wkNext, wq) >= wq.target) {
+      if (weeklyQuestProgressValue(next, wq) >= wq.target) {
         doneThisWeekSet.add(wq.id)
-        wkNext = {
-          ...wkNext,
-          xp: wkNext.xp + wq.xp,
-          weeklyQuestsDone: (wkNext.weeklyQuestsDone || 0) + 1,
-          weeklyCompletions: { ...(wkNext.weeklyCompletions || {}), [wkKey]: [...doneThisWeekSet] },
+        next = {
+          ...next,
+          gold: (next.gold || 0) + wq.coinReward,
+          weeklyQuestsDone: (next.weeklyQuestsDone || 0) + 1,
+          weeklyCompletions: { ...(next.weeklyCompletions || {}), [wkKey]: [...doneThisWeekSet] },
         }
-        addToast({ title: "WEEKLY QUEST", body: wq.desc, sub: `+${wq.xp} DMG`, kind: "xp" })
+        addToast({ title: "WEEKLY QUEST DONE", body: wq.desc, sub: `+${wq.coinReward}🪙` })
       }
     }
-    save(wkNext)
+    save(next)
   },
 
   addWeeklyQuest: (quest) => {
@@ -609,8 +644,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const inv = { ...data.inventory, [itemId]: data.inventory[itemId] - 1 }
     let next: AppState = { ...data, inventory: inv }
 
-    if (item.effect === "instant_xp") {
-      next = { ...next, xp: next.xp + item.value }
+    if (item.effect === "instant_dmg") {
       if (next.currentBoss) {
         const newHp = Math.max(0, next.currentBoss.hp - item.value)
         if (newHp <= 0) {
@@ -623,13 +657,13 @@ export const useTrainStore = create<StoreState>((set, get) => ({
             bossKills: { ...(next.bossKills || {}), [bossIdx]: ((next.bossKills || {})[bossIdx] || 0) + 1 },
           }
           set({ gachaResult: [gearRolled] })
-          addToast({ title: "BOSS DEFEATED!", body: bossConfig.name + " fell to your " + item.name + "!" })
+          addToast({ title: "BOSS DEFEATED!", body: `${bossConfig.name} fell to ${item.name}!` })
         } else {
           next = { ...next, currentBoss: { ...next.currentBoss, hp: newHp } }
-          addToast({ title: `${item.icon} BOSS HIT! -${item.value} HP`, body: "Direct damage!", kind: "xp" })
+          addToast({ title: `${item.icon} BOSS HIT! -${item.value} HP`, body: "Direct hit!", sub: `${newHp.toLocaleString()} HP remaining` })
         }
       } else {
-        addToast({ title: `${item.icon} ${item.name}`, body: `+${item.value} XP`, kind: "xp" })
+        addToast({ title: `${item.icon} ${item.name}`, body: "No active boss to attack!" })
       }
     } else if (item.effect === "dmg_boost") {
       const existing = next.activeEffects?.dmg_boost ?? 1
@@ -651,7 +685,7 @@ export const useTrainStore = create<StoreState>((set, get) => ({
     const bossConfig = BOSSES[Math.min(idx, BOSSES.length - 1)]
     const maxHp = bossConfig.hp + Math.max(0, idx - (BOSSES.length - 1)) * 500
     save({ ...data, currentBoss: { idx, hp: maxHp } })
-    addToast({ title: "BOSS BATTLE STARTED!", body: bossConfig.name, sub: `${maxHp.toLocaleString()} HP to defeat` })
+    addToast({ title: "BOSS BATTLE STARTED!", body: bossConfig.name, sub: `${maxHp.toLocaleString()} HP · Log sessions to deal damage` })
   },
 
   abandonBoss: () => {
@@ -750,12 +784,6 @@ export const useTrainStore = create<StoreState>((set, get) => ({
 
   // ── Settings ────────────────────────────────────────────────────────────────
 
-
-  updateXpRules: (rules) => {
-    const { data, save } = get()
-    save({ ...data, xpRules: { ...data.xpRules, ...rules } })
-  },
-
   toggleSection: (key, val) => {
     const { data, save } = get()
     save({ ...data, ui: { ...data.ui, sectionsVisible: { ...data.ui.sectionsVisible, [key]: val } } })
@@ -798,7 +826,6 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   },
 
   clearPRFlash: () => set({ prFlash: null }),
-  closeLevelUp: () => set({ levelUpInfo: null }),
 }))
 
 function checkAchievementsOnState(state: AppState, get: () => StoreState): AppState {

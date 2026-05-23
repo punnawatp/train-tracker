@@ -28,7 +28,7 @@ export default function TrainingCards({ onOpenExerciseModal, onOpenActivityModal
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: act.color + "26", color: act.color }}>
                   {act.name}
                 </span>
-                <span className="ml-auto text-[11px] text-gold font-bold">+{act.xp} XP</span>
+                <span className="ml-auto text-[11px] text-gold font-bold">+{act.coinReward}🪙</span>
                 <button
                   onClick={() => onOpenActivityModal(act.id)}
                   className="text-muted hover:text-tx text-base leading-none px-0.5"

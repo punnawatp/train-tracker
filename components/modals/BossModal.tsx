@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useTrainStore } from "@/store/useTrainStore"
 import { BOSSES, GACHA_GEAR } from "@/lib/constants"
 import type { BossConfig } from "@/lib/constants"
-import { levelProgress } from "@/lib/game-logic"
+import { dayStreak } from "@/lib/game-logic"
 
 // ── Color helper ──────────────────────────────────────────────────────────────
 
@@ -158,7 +158,7 @@ interface Props {
 }
 
 export default function BossModal({ open, onClose }: Props) {
-  const xp           = useTrainStore(s => s.data.xp)
+  const data         = useTrainStore(s => s.data)
   const currentBoss  = useTrainStore(s => s.data.currentBoss)
   const bossKills    = useTrainStore(s => s.data.bossKills || {})
   const startBoss    = useTrainStore(s => s.startBossBattle)
@@ -168,7 +168,7 @@ export default function BossModal({ open, onClose }: Props) {
 
   if (!open) return null
 
-  const { level } = levelProgress(xp)
+  const streak = dayStreak(data)
 
   const cfg: BossConfig | null = selectedIdx !== null ? BOSSES[Math.min(selectedIdx, BOSSES.length - 1)] : null
   const maxHp    = cfg ? cfg.hp + Math.max(0, (selectedIdx ?? 0) - (BOSSES.length - 1)) * 500 : 0
@@ -268,8 +268,8 @@ export default function BossModal({ open, onClose }: Props) {
               {/* Stats grid */}
               <div className="grid grid-cols-2 gap-2 text-[10px]">
                 <div className="rounded-lg px-2.5 py-2" style={{ background: "rgba(255,255,255,0.04)" }}>
-                  <div className="text-muted mb-0.5">Your level</div>
-                  <div className="font-extrabold" style={{ color: cfg.color }}>Lv.{level}</div>
+                  <div className="text-muted mb-0.5">Streak</div>
+                  <div className="font-extrabold" style={{ color: cfg.color }}>{streak}d 🔥</div>
                 </div>
                 <div className="rounded-lg px-2.5 py-2" style={{ background: "rgba(255,255,255,0.04)" }}>
                   <div className="text-muted mb-0.5">Loot tier</div>

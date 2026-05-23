@@ -43,7 +43,7 @@ export default function TodayLog({ onOpenGymModal }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase" style={{ background: color + "26", color }}>{actName}</span>
                     <span className="text-muted text-sm">{fmtTime(s.ts)}</span>
-                    <span className="text-accent text-xs font-bold">-{s.xpAwarded || 0} HP</span>
+                    {(s.coinsEarned || 0) > 0 && <span className="text-gold text-xs font-bold">+{s.coinsEarned}🪙</span>}
                     {vol > 0 && <span className="text-[11px] font-bold" style={{ color }}>{Math.round(vol).toLocaleString()}kg vol</span>}
                   </div>
                   <button

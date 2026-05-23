@@ -1,4 +1,4 @@
-import type { AppState, ActivityType, Category, GearItem, Lift, ShopItem, XpRules } from "./types"
+import type { AppState, ActivityType, Category, GearItem, Lift, ShopItem } from "./types"
 
 export interface BossConfig { name: string; color: string; hp: number; taunt: string }
 
@@ -76,16 +76,6 @@ export function rollShopGacha(): GearItem | null {
   return pickGearByRarity(rarity)
 }
 
-export const BELTS = [
-  { lvl: 1,  name: "White Belt",  color: "#ffffff", stripe: "#000000" },
-  { lvl: 5,  name: "Blue Belt",   color: "#3b82f6", stripe: "#000000" },
-  { lvl: 10, name: "Purple Belt", color: "#a855f7", stripe: "#000000" },
-  { lvl: 18, name: "Brown Belt",  color: "#92400e", stripe: "#000000" },
-  { lvl: 28, name: "Black Belt",  color: "#0a0a0a", stripe: "#dc2626" },
-  { lvl: 40, name: "Coral Belt",  color: "#ef4444", stripe: "#ffffff" },
-  { lvl: 55, name: "Red Belt",    color: "#b91c1c", stripe: "#fbbf24" },
-]
-
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: "lower", name: "Lower Body" },
   { id: "upper", name: "Upper Body" },
@@ -99,16 +89,27 @@ export const DEFAULT_ACTIVITY_TYPES: ActivityType[] = [
     id: "gym",
     name: "Gym",
     color: "#4cc9f0",
-    xp: 10,
+    coinReward: 50,
     hasExercises: true,
-    statGains: { str: 2.0, flex: 0.5 },
+    statGains: { str: 2 },
+  },
+  {
+    id: "boxing",
+    name: "Boxing",
+    color: "#ff8fab",
+    coinReward: 50,
+    hasExercises: false,
+    statGains: { end: 1, mnd: 1 },
+  },
+  {
+    id: "mobility",
+    name: "Mobility",
+    color: "#b388ff",
+    coinReward: 50,
+    hasExercises: false,
+    statGains: { mob: 1, flex: 1 },
   },
 ]
-
-export const DEFAULT_XP_RULES: XpRules = {
-  exerciseBonus: 5, exerciseBonusMax: 25,
-  prBonus: 25, weeklyBonus: 50, bodyweightLog: 3,
-}
 
 export const DEFAULT_SECTIONS: Record<string, boolean> = {
   hero: true, quests: true, training: true,
@@ -119,7 +120,7 @@ export const DEFAULT_SECTIONS: Record<string, boolean> = {
 }
 
 export const SECTION_LABELS: Record<string, string> = {
-  hero: "Level + belt", quests: "Quests", training: "Training cards",
+  hero: "Character stats", quests: "Quests", training: "Training cards",
   todayLog: "Today's log", widgets: "My dashboard",
   attributes: "Attributes (radar)", muscleBalance: "Muscle balance",
   bodyweight: "Bodyweight", lifts: "Strength goals",
@@ -244,10 +245,10 @@ export const EXERCISE_MUSCLES: Record<string, { primary: string[]; secondary: st
 }
 
 export const STAT_METRIC_KEYS = [
-  "level", "totalXp", "beltName", "totalSessions", "sessionsWeek",
+  "gold", "totalSessions", "sessionsWeek",
   "sessionsMonth", "dayStreak", "weekGoalStreak", "totalPrs", "prsWeek",
   "volumeWeek", "volumeTotal", "achievementsUnlocked", "questsCompleted",
-  "weeklyQuestsCompleted", "comboMultiplier", "bodyweightCurrent",
+  "weeklyQuestsCompleted", "bodyweightCurrent",
   "bodyweightGoal", "bodyweight30dChange", "averagePerWeek",
 ]
 
@@ -262,8 +263,6 @@ export const ACHIEVEMENTS = [
   { id: "streak10",  name: "Relentless",       icon: "⚔️", desc: "10-day training streak",        check: (s: AppState) => dayStreak(s) >= 10 },
   { id: "total50",   name: "Half Century",     icon: "🏅", desc: "50 total sessions",             check: (s: AppState) => s.sessions.length >= 50 },
   { id: "total100",  name: "Centurion",        icon: "🏆", desc: "100 total sessions",            check: (s: AppState) => s.sessions.length >= 100 },
-  { id: "lvl5",      name: "Bluebelt",         icon: "🔵", desc: "Reach Blue Belt (Lvl 5)",       check: (s: AppState) => xpToLevel(s.xp) >= 5 },
-  { id: "lvl10",     name: "Purplebelt",       icon: "🟣", desc: "Reach Purple Belt (Lvl 10)",    check: (s: AppState) => xpToLevel(s.xp) >= 10 },
   { id: "quest5",    name: "Quester",          icon: "📜", desc: "Complete 5 daily quests",       check: (s: AppState) => (s.questsDone || 0) >= 5 },
   { id: "pr1",       name: "First PR",         icon: "📈", desc: "Hit your first PR",             check: (s: AppState) => prCount(s) >= 1 },
   { id: "pr5",       name: "PR Hunter",        icon: "🎯", desc: "Set 5 PRs",                     check: (s: AppState) => prCount(s) >= 5 },
@@ -273,6 +272,8 @@ export const ACHIEVEMENTS = [
   { id: "vol1k",     name: "Volume King",      icon: "🏋️", desc: "5000kg volume in one week",    check: (s: AppState) => weekVolumeCheck(s) >= 5000 },
   { id: "balanced",  name: "Well-Rounded",     icon: "⚖️", desc: "All attributes ≥ 25",           check: (s: AppState) => Object.values(s.stats || {}).every(v => v >= 25) },
   { id: "maxstat",   name: "Specialist",       icon: "💎", desc: "Any attribute ≥ 75",            check: (s: AppState) => Object.values(s.stats || {}).some(v => v >= 75) },
+  { id: "rich",      name: "High Roller",      icon: "🤑", desc: "Accumulate 1000 coins",         check: (s: AppState) => (s.gold || 0) >= 1000 },
+  { id: "gacha10",   name: "Gambler",          icon: "🎰", desc: "Win 10 gacha gear pieces",      check: (s: AppState) => Object.values(s.gear || {}).reduce((a, b) => a + b, 0) >= 10 },
 ]
 
 export const DAILY_QUESTS = [
@@ -474,10 +475,10 @@ export const EXERCISE_CATALOG: ExerciseCatalogEntry[] = [
 export const SHOP_ITEMS: ShopItem[] = [
   { id: "short_sword",  name: "Short Sword",  icon: "⚔️",  desc: "Next session hits +75% harder",         cost: 40,  effect: "dmg_boost",   value: 1.75 },
   { id: "war_axe",      name: "War Axe",      icon: "🪓",  desc: "Next session hits +150% harder",        cost: 100, effect: "dmg_boost",   value: 2.5  },
-  { id: "bomb",         name: "Bomb",         icon: "💣",  desc: "Deal 200 instant boss damage",          cost: 160, effect: "instant_xp",  value: 200  },
-  { id: "dynamite",     name: "Dynamite",     icon: "💥",  desc: "Deal 500 instant boss damage",          cost: 350, effect: "instant_xp",  value: 500  },
+  { id: "bomb",         name: "Bomb",         icon: "💣",  desc: "Deal 200 instant boss damage",          cost: 160, effect: "instant_dmg", value: 200  },
+  { id: "dynamite",     name: "Dynamite",     icon: "💥",  desc: "Deal 500 instant boss damage",          cost: 350, effect: "instant_dmg", value: 500  },
   { id: "gold_ring",    name: "Gold Ring",    icon: "💍",  desc: "Next session earns double gold",        cost: 120, effect: "gold_boost",  value: 2.0  },
 ]
 
 // Re-exported pure functions used by ACHIEVEMENTS (to avoid circular deps)
-import { dayStreak, xpToLevel, prCount, bodyweightGoalHit, weekVolumeCheck, hasAllThreeInWeek } from "./game-logic"
+import { dayStreak, prCount, bodyweightGoalHit, weekVolumeCheck, hasAllThreeInWeek } from "./game-logic"

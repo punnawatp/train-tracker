@@ -5,7 +5,6 @@ import { useTrainStore } from "@/store/useTrainStore"
 
 import ToastStack from "@/components/ui/Toast"
 import PRFlash from "@/components/ui/PRFlash"
-import LevelUp from "@/components/ui/LevelUp"
 import ConfettiCanvas from "@/components/ui/Confetti"
 
 import CharacterCard from "@/components/CharacterCard"
@@ -73,8 +72,7 @@ export default function Dashboard() {
     <>
       <ToastStack />
       <PRFlash />
-      <LevelUp />
-      <ConfettiCanvas />
+<ConfettiCanvas />
 
       <GymModal open={gymModal.open} activityId={gymModal.activityId} sessId={gymModal.sessId} onClose={() => setGymModal({ open: false })} />
       <ActivityModal open={activityModal.open} activityId={activityModal.activityId} onClose={() => setActivityModal({ open: false })} />

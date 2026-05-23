@@ -302,25 +302,24 @@ interface BossCardProps {
 }
 
 export default function BossCard({ onShopOpen }: BossCardProps) {
-  const xp = useTrainStore(s => s.data.xp)
   const gold = useTrainStore(s => s.data.gold || 0)
   const activeEffects = useTrainStore(s => s.data.activeEffects || {})
-  const prevXpRef = useRef(xp)
+  const prevXpRef = useRef(gold)
   const [anim, setAnim] = useState<"idle" | "hit" | "dead">("idle")
   const [hits, setHits] = useState<HitEvent[]>([])
   const [particles, setParticles] = useState<Particle[]>([])
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
-  const boss = getBossState(xp)
+  const boss = getBossState(gold)
 
   useEffect(() => {
     const prev = prevXpRef.current
-    prevXpRef.current = xp
-    if (xp <= prev) return
+    prevXpRef.current = gold
+    if (gold <= prev) return
 
-    const dmg = xp - prev
+    const dmg = gold - prev
     const prevBoss = getBossState(prev)
-    const currBoss = getBossState(xp)
+    const currBoss = getBossState(gold)
     const bossDefeated = currBoss.totalDefeated > prevBoss.totalDefeated
 
     if (bossDefeated) {
@@ -335,7 +334,7 @@ export default function BossCard({ onShopOpen }: BossCardProps) {
     const id = Date.now()
     setHits(p => [...p, { id, dmg, x: 22 + Math.random() * 56 }])
     setTimeout(() => setHits(p => p.filter(h => h.id !== id)), 1400)
-  }, [xp])
+  }, [gold])
 
   return (
     <div

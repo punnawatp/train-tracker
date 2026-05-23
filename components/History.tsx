@@ -26,7 +26,7 @@ export default function History({ onOpenGymModal }: Props) {
         Recent sessions <span className="text-[11px] text-muted font-normal">click any to edit</span>
       </h3>
       {sessions.length === 0 ? (
-        <div className="text-muted text-sm text-center py-5">No sessions yet. Tap a log button to earn XP.</div>
+        <div className="text-muted text-sm text-center py-5">No sessions yet. Log a session to earn coins.</div>
       ) : (
         <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto">
           {sessions.slice(0, 30).map(s => {
@@ -42,7 +42,7 @@ export default function History({ onOpenGymModal }: Props) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2 py-0.5 rounded-md text-[11px] font-bold uppercase" style={{ background: color + "26", color }}>{actName(s.type)}</span>
                     <span>{fmtDate(s.ts)} · <span className="text-muted">{fmtTime(s.ts)}</span></span>
-                    <span className="text-gold text-xs font-bold">+{s.xpAwarded || 0} XP</span>
+                    {(s.coinsEarned || 0) > 0 && <span className="text-gold text-xs font-bold">+{s.coinsEarned}🪙</span>}
                     {vol > 0 && <span className="text-[11px] font-bold" style={{ color }}>{Math.round(vol).toLocaleString()} kg vol</span>}
                   </div>
                   <button
