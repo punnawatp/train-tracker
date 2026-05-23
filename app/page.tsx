@@ -43,9 +43,12 @@ const NAV: { id: Page; icon: string; label: string }[] = [
 ]
 
 export default function Dashboard() {
-  const load    = useTrainStore(s => s.load)
-  const loading = useTrainStore(s => s.loading)
-  const resetWeek = useTrainStore(s => s.resetWeek)
+  const load       = useTrainStore(s => s.load)
+  const loading    = useTrainStore(s => s.loading)
+  const loadError  = useTrainStore(s => s.loadError)
+  const saveError  = useTrainStore(s => s.saveError)
+  const clearSaveError = useTrainStore(s => s.clearSaveError)
+  const resetWeek  = useTrainStore(s => s.resetWeek)
   const gachaResult = useTrainStore(s => s.gachaResult)
 
   const [page, setPage] = useState<Page>("character")
@@ -68,11 +71,37 @@ export default function Dashboard() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-sm">
+          <div className="text-2xl mb-3">⚠️</div>
+          <div className="font-bold mb-1">Failed to load data</div>
+          <div className="text-muted text-sm mb-4">{loadError}</div>
+          <button
+            onClick={() => { useTrainStore.getState().load() }}
+            className="btn-secondary px-6"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <ToastStack />
       <PRFlash />
-<ConfettiCanvas />
+      <ConfettiCanvas />
+
+      {saveError && (
+        <div className="fixed top-0 left-0 right-0 z-[100] flex items-center justify-between gap-3 px-4 py-2.5 text-sm font-semibold"
+          style={{ background: "#7f1d1d", borderBottom: "1px solid #991b1b" }}>
+          <span>⚠ Save failed — check your connection. Changes may not be persisted. <span className="font-normal opacity-75">{saveError}</span></span>
+          <button onClick={clearSaveError} className="opacity-75 hover:opacity-100 flex-shrink-0">✕</button>
+        </div>
+      )}
 
       <GymModal open={gymModal.open} activityId={gymModal.activityId} sessId={gymModal.sessId} onClose={() => setGymModal({ open: false })} />
       <ActivityModal open={activityModal.open} activityId={activityModal.activityId} onClose={() => setActivityModal({ open: false })} />

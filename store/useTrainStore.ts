@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import type { ActivityType, AppState, Exercise, Session, Toast, UserDailyQuest, UserWeeklyQuest, Widget } from "@/lib/types"
 import {
   DEFAULT_SECTIONS, DEFAULT_CATEGORIES, DEFAULT_LIFTS, DEFAULT_ACTIVITY_TYPES,
-  ACHIEVEMENTS, SHOP_ITEMS, BOSSES, GACHA_GEAR, rollGacha, rollShopGacha,
+  ACHIEVEMENTS, SHOP_ITEMS, BOSSES, rollGacha, rollShopGacha,
 } from "@/lib/constants"
 import type { GearItem } from "@/lib/types"
 import { loadCurrentProfile, setUserProfile } from "@/lib/social"
@@ -14,7 +14,6 @@ import {
   dayKey, findMatchingLift, streakMultiplier,
   isDailyQuestDone, weeklyQuestProgressValue,
   sessionVolume, todaySessions, weekKey,
-  totalAttackPower,
 } from "@/lib/game-logic"
 
 const DEFAULT_DAILY_QUESTS: UserDailyQuest[] = [
@@ -63,6 +62,8 @@ const defaultData: AppState = {
 interface StoreState {
   data: AppState
   loading: boolean
+  loadError: string | null
+  saveError: string | null
   toasts: Toast[]
   prFlash: { name: string; val: string } | null
   username: string | null
@@ -70,6 +71,7 @@ interface StoreState {
   // Lifecycle
   load: () => Promise<void>
   save: (next: AppState) => Promise<void>
+  clearSaveError: () => void
 
   // Session actions
   logSession: (type: string, exercises?: Exercise[], note?: string, durationMinutes?: number) => void
@@ -152,26 +154,35 @@ interface StoreState {
 
 function getSupabase() { return createClient() }
 
-async function fetchData(): Promise<AppState | null> {
-  const supabase = getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
-  const { data, error } = await supabase
-    .from("user_data")
-    .select("data")
-    .eq("user_id", user.id)
-    .single()
-  if (error || !data) return null
-  return data.data as AppState
+async function fetchData(): Promise<{ data: AppState | null; error: string | null }> {
+  try {
+    const supabase = getSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { data: null, error: null }
+    const { data, error } = await supabase
+      .from("user_data")
+      .select("data")
+      .eq("user_id", user.id)
+      .single()
+    if (error && error.code !== "PGRST116") return { data: null, error: error.message }
+    return { data: data ? (data.data as AppState) : null, error: null }
+  } catch (e) {
+    return { data: null, error: e instanceof Error ? e.message : "Failed to load data" }
+  }
 }
 
-async function persistData(state: AppState): Promise<void> {
-  const supabase = getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  await supabase
-    .from("user_data")
-    .upsert({ user_id: user.id, data: state }, { onConflict: "user_id" })
+async function persistData(state: AppState): Promise<string | null> {
+  try {
+    const supabase = getSupabase()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const { error } = await supabase
+      .from("user_data")
+      .upsert({ user_id: user.id, data: state }, { onConflict: "user_id" })
+    return error ? error.message : null
+  } catch (e) {
+    return e instanceof Error ? e.message : "Failed to save data"
+  }
 }
 
 function mergeFromStorage(raw: Partial<AppState>): AppState {
@@ -247,6 +258,8 @@ function mergeFromStorage(raw: Partial<AppState>): AppState {
 export const useTrainStore = create<StoreState>((set, get) => ({
   data: structuredClone(defaultData),
   loading: true,
+  loadError: null,
+  saveError: null,
   toasts: [],
   prFlash: null,
   gachaResult: null,
@@ -256,17 +269,24 @@ export const useTrainStore = create<StoreState>((set, get) => ({
   // ── Lifecycle ───────────────────────────────────────────────────────────────
 
   load: async () => {
-    const [raw, profile] = await Promise.all([fetchData(), loadCurrentProfile()])
+    const [{ data: raw, error: loadErr }, profile] = await Promise.all([fetchData(), loadCurrentProfile()])
+    if (loadErr) {
+      set({ loading: false, loadError: loadErr })
+      return
+    }
     const data = raw ? mergeFromStorage(raw) : structuredClone(defaultData)
     document.documentElement.classList.remove("theme-dark", "theme-light")
     document.documentElement.classList.add(`theme-${data.ui.theme ?? "dark"}`)
-    set({ data, loading: false, username: profile?.username ?? null })
+    set({ data, loading: false, loadError: null, username: profile?.username ?? null })
   },
 
   save: async (next: AppState) => {
     set({ data: next })
-    await persistData(next)
+    const err = await persistData(next)
+    if (err) set({ saveError: err })
   },
+
+  clearSaveError: () => set({ saveError: null }),
 
   // ── Session actions ─────────────────────────────────────────────────────────
 
