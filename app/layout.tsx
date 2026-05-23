@@ -2,8 +2,8 @@ import type { Metadata } from "next"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "Train — Gym · BJJ · MMA",
-  description: "Track your training, earn XP, level up.",
+  title: "Train",
+  description: "Track your training, earn coins, level up.",
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
